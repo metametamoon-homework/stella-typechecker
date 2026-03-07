@@ -4,6 +4,7 @@ plugins {
   kotlin("jvm") version "2.3.0"
   id("com.strumenta.antlr-kotlin") version "1.0.0"
   id("com.ncorti.ktfmt.gradle") version "0.25.0"
+  id("dev.detekt") version "2.0.0-alpha.2"
 }
 
 group = "com.github.metametamoon"
@@ -22,9 +23,7 @@ dependencies {
 
 kotlin {
   jvmToolchain(23)
-  compilerOptions {
-    freeCompilerArgs.add("-Xcontext-parameters")
-  }
+  compilerOptions { freeCompilerArgs.add("-Xcontext-parameters") }
 }
 
 tasks.test { useJUnitPlatform() }
@@ -52,3 +51,21 @@ val generateKotlinGrammarSource =
   }
 
 ktfmt { googleStyle() }
+
+detekt {
+  toolVersion = "2.0.0-alpha.2"
+  config.setFrom(file("detekt.yml"))
+  buildUponDefaultConfig = true
+}
+
+tasks.detektMain {
+  exclude("**/StellaLexer**")
+  exclude("**/StellaParser**")
+}
+
+val runCodeQualityChecks: TaskProvider<Task> =
+  tasks.register("codeQuality") {
+    group = "verification"
+    dependsOn(tasks.ktfmtFormatMain)
+    dependsOn(tasks.detektMain)
+  }

@@ -15,7 +15,7 @@ import utils.raise
 data class TypeInferenceCtx(val env: Env, val typecheckVisitor: TypeCheckVisitor)
 
 class TypeInferenceVisitor : AstVisitor<TypeInferenceCtx, Result<Type, TypeError>> {
-  private val typeInferenceVisitor = this
+  @Suppress("MemberNameEqualsClassName") private val typeInferenceVisitor = this
 
   override fun visitSucc(succ: Succ, ctx: TypeInferenceCtx): Result<Type, TypeError> = binding {
     val checkUnderlying =
@@ -37,7 +37,7 @@ class TypeInferenceVisitor : AstVisitor<TypeInferenceCtx, Result<Type, TypeError
     application: Application,
     ctx: TypeInferenceCtx,
   ): Result<Type, TypeError> {
-    val leftType = application.func.accept(typeInferenceVisitor)
+    @Suppress("UnusedVariable") val leftType = application.func.accept(typeInferenceVisitor, ctx)
     TODO("Not yet implemented")
   }
 

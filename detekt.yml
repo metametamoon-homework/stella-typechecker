@@ -1,0 +1,11 @@
+config:
+  validation: true
+  warningsAsErrors: true
+  excludes:
+    - ".*/build/.*"
+
+
+style:
+  ReturnCount:
+    active: true
+    max: 5

@@ -13,11 +13,13 @@ sealed interface Node {
 sealed interface Expr : Node
 
 data class Succ(val expr: Expr, override val position: Position? = null) : Expr {
-  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T = visitor.visitSucc(this, ctx)
+  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
+    visitor.visitSucc(this, ctx)
 }
 
 data class Var(val name: String, override val position: Position? = null) : Expr {
-  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T = visitor.visitVar(this, ctx)
+  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
+    visitor.visitVar(this, ctx)
 }
 
 data class Application(

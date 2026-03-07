@@ -3,7 +3,6 @@ package type
 import ast.Node
 import ast.Succ
 import ast.Var
-import com.sun.org.apache.xpath.internal.operations.Variable
 
 sealed interface TypeError {
   val errorId: String

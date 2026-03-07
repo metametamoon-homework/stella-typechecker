@@ -1,3 +1,5 @@
+@file:Suppress("UnsafeCallOnNullableType")
+
 package ast
 
 import com.strumenta.antlrkotlin.parsers.generated.StellaParser
