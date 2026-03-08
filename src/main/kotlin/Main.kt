@@ -1,8 +1,12 @@
 import ast.toAst
-import com.strumenta.antlrkotlin.parsers.generated.StellaLexer
-import com.strumenta.antlrkotlin.parsers.generated.StellaParser
+import generated.antlr.StellaLexer
+import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
+import type.TypeCheckVisitor
+import type.TypeInferenceCtx
+import type.TypeInferenceVisitor
+import type.emptyEnv
 
 fun main() {
   val sample =
@@ -20,5 +24,7 @@ fun main() {
       .trimIndent()
   val lexer = StellaLexer(CharStreams.fromString(sample))
   val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-  println(program)
+  val typeChecks =
+    program.accept(TypeInferenceVisitor(), TypeInferenceCtx(emptyEnv, TypeCheckVisitor()))
+  println(typeChecks)
 }

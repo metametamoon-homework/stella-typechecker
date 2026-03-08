@@ -1,10 +1,12 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-  kotlin("jvm") version "2.3.0"
-  id("com.strumenta.antlr-kotlin") version "1.0.0"
-  id("com.ncorti.ktfmt.gradle") version "0.25.0"
-  id("dev.detekt") version "2.0.0-alpha.2"
+  alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.antlr)
+  alias(libs.plugins.ktfmt)
+  alias(libs.plugins.detekt)
 }
 
 group = "com.github.metametamoon"
@@ -13,17 +15,25 @@ version = "1.0-SNAPSHOT"
 
 repositories { mavenCentral() }
 
-sourceSets["main"].kotlin.srcDir("build/generatedAntlr/com/strumenta/antlrkotlin/parsers/generated")
+sourceSets["main"].kotlin.srcDir("build/generatedAntlr/")
 
 dependencies {
   implementation("com.strumenta:antlr-kotlin-runtime-jvm:1.0.0")
   implementation("com.michael-bull.kotlin-result:kotlin-result:2.1.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
   testImplementation(kotlin("test"))
 }
 
 kotlin {
   jvmToolchain(23)
-  compilerOptions { freeCompilerArgs.add("-Xcontext-parameters") }
+  compilerOptions {
+    freeCompilerArgs.addAll(
+      "-Xcontext-parameters",
+      "-Xreturn-value-checker=full",
+      "-Werror",
+      "-Xwarning-level=ERROR_SUPPRESSION:disabled", // for generated code
+    )
+  }
 }
 
 tasks.test { useJUnitPlatform() }
@@ -31,24 +41,26 @@ tasks.test { useJUnitPlatform() }
 val generateKotlinGrammarSource =
   tasks.register<AntlrKotlinTask>("generateKotlinGrammarSource") {
     dependsOn("cleanGenerateKotlinGrammarSource")
-
-    // ANTLR .g4 files are under {example-project}/antlr
-    // Only include *.g4 files. This allows tools (e.g., IDE plugins)
-    // to generate temporary files inside the base path
     source = fileTree(layout.projectDirectory.dir("antlr")) { include("**/*.g4") }
-
-    // We want the generated source files to have this package name
-    val pkgName = "com.strumenta.antlrkotlin.parsers.generated"
+    val pkgName = "generated.antlr"
     packageName = pkgName
-
-    // We want visitors alongside listeners.
-    // The Kotlin target language is implicit, as is the file encoding (UTF-8)
     arguments = listOf("-visitor")
-
-    // Generated files are outputted inside build/generatedAntlr/{package-name}
     val outDir = "generatedAntlr/${pkgName.replace(".", "/")}"
     outputDirectory = layout.buildDirectory.dir(outDir).get().asFile
+
+    // workaround to allow for stricter warnings
+    doLast {
+      val generatedFolder: File = (this as AntlrKotlinTask).outputDirectory!!
+      val generatedFiles: FileTree = project.fileTree(generatedFolder) { include("**/*.kt") }
+      generatedFiles.forEach { file: File ->
+        val content = file.readText()
+        val suppression = "@file:Suppress(\"all\", \"warnings\", \"unchecked\", \"unused\")"
+        file.writeText("$suppression\n$content")
+      }
+    }
   }
+
+tasks.withType<KotlinCompile>().configureEach { dependsOn(generateKotlinGrammarSource) }
 
 ktfmt { googleStyle() }
 
@@ -66,6 +78,12 @@ tasks.detektMain {
 val runCodeQualityChecks: TaskProvider<Task> =
   tasks.register("codeQuality") {
     group = "verification"
-    dependsOn(tasks.ktfmtFormatMain)
+    dependsOn(tasks.ktfmtCheckMain)
+    dependsOn(tasks.ktfmtCheckTest)
     dependsOn(tasks.detektMain)
+    dependsOn(tasks.detektTest)
   }
+
+tasks.withType<Test>().configureEach { useJUnitPlatform() }
+
+tasks.named("generateKotlinGrammarSource") {}

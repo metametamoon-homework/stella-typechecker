@@ -10,27 +10,6 @@ sealed interface Node {
   fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T
 }
 
-sealed interface Expr : Node
-
-data class Succ(val expr: Expr, override val position: Position? = null) : Expr {
-  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
-    visitor.visitSucc(this, ctx)
-}
-
-data class Var(val name: String, override val position: Position? = null) : Expr {
-  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
-    visitor.visitVar(this, ctx)
-}
-
-data class Application(
-  val func: Expr,
-  val args: List<Expr>,
-  override val position: Position? = null,
-) : Expr {
-  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
-    visitor.visitApplication(this, ctx)
-}
-
 data class Program(val declarations: List<Declaration>, override val position: Position? = null) :
   Node {
   override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
@@ -76,7 +55,7 @@ sealed interface Type : Node {
 
   data class Fun(
     val inputTypes: List<Type>,
-    val returnType: Type?,
+    val returnType: Type,
     override val position: Position? = null,
   ) : Type {
     override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
@@ -87,7 +66,6 @@ sealed interface Type : Node {
 data class FunctionDeclaration(
   val name: String,
   val parameterDeclarations: List<ParamDeclaration>,
-  val declarations: List<Declaration>,
   val returnExpr: Expr,
   override val position: Position? = null,
 ) : Declaration {

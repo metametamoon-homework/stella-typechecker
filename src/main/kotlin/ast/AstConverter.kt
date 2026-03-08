@@ -2,7 +2,7 @@
 
 package ast
 
-import com.strumenta.antlrkotlin.parsers.generated.StellaParser
+import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.ParserRuleContext
 
 private fun ParserRuleContext.toPosition(): Position? {
@@ -23,7 +23,7 @@ fun StellaParser.DeclContext.toAst(): Declaration =
       FunctionDeclaration(
         name = this.name?.text ?: "<unknown>",
         parameterDeclarations = this.paramDecls.map { it.toAst() },
-        declarations = this.localDecls.map { it.toAst() },
+        //        localDeclarations = this.localDecls.map { it.toAst() },
         returnExpr = this.returnExpr!!.toAst(),
         position = toPosition(),
       )
@@ -49,6 +49,10 @@ fun StellaParser.ExprContext.toAst(): Expr =
         args = this.args.map { it.toAst() },
         position = toPosition(),
       )
+    is StellaParser.ConstTrueContext -> TrueLiteral(toPosition())
+    is StellaParser.ConstFalseContext -> FalseLiteral(toPosition())
+    is StellaParser.IfContext ->
+      IfExpression(this.condition!!.toAst(), this.thenExpr!!.toAst(), this.elseExpr!!.toAst())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 

@@ -1,0 +1,12 @@
+[versions]
+kotlin = "2.3.0"
+antlr = "1.0.9"
+ktfmt = "0.25.0"
+detekt = "2.0.0-alpha.2"
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+antlr = { id = "com.strumenta.antlr-kotlin", version.ref = "antlr" }
+ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
