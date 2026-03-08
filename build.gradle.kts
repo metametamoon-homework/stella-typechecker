@@ -1,10 +1,11 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
 
 plugins {
-  kotlin("jvm") version "2.3.0"
-  id("com.strumenta.antlr-kotlin") version "1.0.0"
-  id("com.ncorti.ktfmt.gradle") version "0.25.0"
-  id("dev.detekt") version "2.0.0-alpha.2"
+  alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.antlr)
+  alias(libs.plugins.ktfmt)
+  alias(libs.plugins.detekt)
 }
 
 group = "com.github.metametamoon"
@@ -18,6 +19,7 @@ sourceSets["main"].kotlin.srcDir("build/generatedAntlr/com/strumenta/antlrkotlin
 dependencies {
   implementation("com.strumenta:antlr-kotlin-runtime-jvm:1.0.0")
   implementation("com.michael-bull.kotlin-result:kotlin-result:2.1.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
   testImplementation(kotlin("test"))
 }
 
@@ -66,6 +68,10 @@ tasks.detektMain {
 val runCodeQualityChecks: TaskProvider<Task> =
   tasks.register("codeQuality") {
     group = "verification"
-    dependsOn(tasks.ktfmtFormatMain)
+    dependsOn(tasks.ktfmtCheckMain)
+    dependsOn(tasks.ktfmtCheckTest)
     dependsOn(tasks.detektMain)
+    dependsOn(tasks.detektTest)
   }
+
+tasks.withType<Test>().configureEach { useJUnitPlatform() }

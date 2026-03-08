@@ -1,5 +1,6 @@
 package ast
 
+@Suppress("TooManyFunctions")
 interface AstVisitor<in Ctx, out T> {
   fun visitSucc(succ: Succ, ctx: Ctx): T
 
@@ -20,4 +21,8 @@ interface AstVisitor<in Ctx, out T> {
   fun visitTypeNat(typeNat: Type.Nat, ctx: Ctx): T
 
   fun visitTypeFun(typeFun: Type.Fun, ctx: Ctx): T
+
+  fun visitTrueLiteral(trueLiteral: TrueLiteral, ctx: Ctx): T
+
+  fun visitFalseLiteral(falseLiteral: FalseLiteral, ctx: Ctx): T
 }

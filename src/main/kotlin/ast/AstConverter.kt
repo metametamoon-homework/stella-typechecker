@@ -23,7 +23,7 @@ fun StellaParser.DeclContext.toAst(): Declaration =
       FunctionDeclaration(
         name = this.name?.text ?: "<unknown>",
         parameterDeclarations = this.paramDecls.map { it.toAst() },
-        declarations = this.localDecls.map { it.toAst() },
+        //        localDeclarations = this.localDecls.map { it.toAst() },
         returnExpr = this.returnExpr!!.toAst(),
         position = toPosition(),
       )
@@ -49,6 +49,8 @@ fun StellaParser.ExprContext.toAst(): Expr =
         args = this.args.map { it.toAst() },
         position = toPosition(),
       )
+    is StellaParser.ConstTrueContext -> TrueLiteral(toPosition())
+    is StellaParser.ConstFalseContext -> FalseLiteral(toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 

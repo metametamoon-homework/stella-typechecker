@@ -58,6 +58,16 @@ data class FunDeclaration(
     visitor.visitFunParamDeclaration(this, ctx)
 }
 
+data class TrueLiteral(override val position: Position? = null) : Expr {
+  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
+    visitor.visitTrueLiteral(this, ctx)
+}
+
+data class FalseLiteral(override val position: Position? = null) : Expr {
+  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
+    visitor.visitFalseLiteral(this, ctx)
+}
+
 sealed interface Type : Node {
 
   data object Bool : Type {
@@ -76,7 +86,7 @@ sealed interface Type : Node {
 
   data class Fun(
     val inputTypes: List<Type>,
-    val returnType: Type?,
+    val returnType: Type,
     override val position: Position? = null,
   ) : Type {
     override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
@@ -87,7 +97,6 @@ sealed interface Type : Node {
 data class FunctionDeclaration(
   val name: String,
   val parameterDeclarations: List<ParamDeclaration>,
-  val declarations: List<Declaration>,
   val returnExpr: Expr,
   override val position: Position? = null,
 ) : Declaration {
