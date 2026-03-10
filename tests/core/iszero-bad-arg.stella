@@ -13,5 +13,5 @@ TEST_END
 language core;
 
 fn main(b : Bool) -> Bool {
-  return Nat::iszerp(b)
+  return Nat::iszero(b)
 }

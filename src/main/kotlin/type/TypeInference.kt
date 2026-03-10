@@ -6,6 +6,7 @@ import ast.FalseLiteral
 import ast.FunDeclaration
 import ast.FunctionDeclaration
 import ast.IfExpression
+import ast.IsZero
 import ast.Node
 import ast.ParamDeclaration
 import ast.Program
@@ -150,6 +151,14 @@ class TypeInferenceVisitor : AstVisitor<TypeInferenceCtx, Result<Type, Contextua
     val inferredType = expression.thenBranch.inferType(ctx.env, ctx.typecheckVisitor).bind()
     expression.cond.typeCheck(ctx.env, inferredType, ctx.typecheckVisitor).bind()
     inferredType
+  }
+
+  override fun visitIsZero(
+    isZero: IsZero,
+    ctx: TypeInferenceCtx,
+  ): Result<Type, ContextualTypeError> = binding {
+    isZero.arg.typeCheck(ctx.env, Nat, ctx.typecheckVisitor).bind()
+    Bool
   }
 
   private fun Node.typeCheck(

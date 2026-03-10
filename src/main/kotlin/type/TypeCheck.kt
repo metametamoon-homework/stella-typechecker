@@ -6,6 +6,7 @@ import ast.FalseLiteral
 import ast.FunDeclaration
 import ast.FunctionDeclaration
 import ast.IfExpression
+import ast.IsZero
 import ast.ParamDeclaration
 import ast.Program
 import ast.Succ
@@ -115,7 +116,7 @@ class TypeCheckVisitor : AstVisitor<TypeCheckCtx, Result<Unit, ContextualTypeErr
     ctx: TypeCheckCtx,
   ): Result<Unit, ContextualTypeError> = binding {
     if (ctx.expectedType != Bool) {
-      raise(TypeMismatch(falseLiteral, ctx.expectedType, ctx.expectedType).withEmptyContext())
+      raise(TypeMismatch(falseLiteral, Bool, ctx.expectedType).withEmptyContext())
     }
     Unit
   }
@@ -128,4 +129,12 @@ class TypeCheckVisitor : AstVisitor<TypeCheckCtx, Result<Unit, ContextualTypeErr
     expression.thenBranch.accept(this@TypeCheckVisitor, ctx).bind()
     expression.elseBranch.accept(this@TypeCheckVisitor, ctx).bind()
   }
+
+  override fun visitIsZero(isZero: IsZero, ctx: TypeCheckCtx): Result<Unit, ContextualTypeError> =
+    binding {
+      if (ctx.expectedType != Nat) {
+        raise(TypeMismatch(isZero, Nat, ctx.expectedType).withEmptyContext())
+      }
+      Unit
+    }
 }

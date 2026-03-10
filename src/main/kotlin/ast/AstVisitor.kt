@@ -27,4 +27,6 @@ interface AstVisitor<in Ctx, out T> {
   fun visitFalseLiteral(falseLiteral: FalseLiteral, ctx: Ctx): T
 
   fun visitIfExpr(expression: IfExpression, ctx: Ctx): T
+
+  fun visitIsZero(isZero: IsZero, ctx: Ctx): T
 }

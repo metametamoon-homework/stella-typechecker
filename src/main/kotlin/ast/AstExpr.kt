@@ -7,6 +7,11 @@ data class Succ(val expr: Expr, override val position: Position? = null) : Expr 
     visitor.visitSucc(this, ctx)
 }
 
+data class IsZero(val arg: Expr, override val position: Position? = null) : Expr {
+  override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
+    visitor.visitIsZero(this, ctx)
+}
+
 data class Var(val name: String, override val position: Position? = null) : Expr {
   override fun <Ctx, T> accept(visitor: AstVisitor<Ctx, T>, ctx: Ctx): T =
     visitor.visitVar(this, ctx)

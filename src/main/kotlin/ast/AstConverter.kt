@@ -53,6 +53,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.ConstFalseContext -> FalseLiteral(toPosition())
     is StellaParser.IfContext ->
       IfExpression(this.condition!!.toAst(), this.thenExpr!!.toAst(), this.elseExpr!!.toAst())
+    is StellaParser.IsZeroContext -> IsZero(this.n!!.toAst())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
