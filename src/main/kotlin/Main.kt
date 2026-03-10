@@ -3,10 +3,7 @@ import generated.antlr.StellaLexer
 import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
-import type.TypeCheckVisitor
-import type.TypeInferenceCtx
-import type.TypeInferenceVisitor
-import type.emptyEnv
+import type.performTypeInference
 
 fun main() {
   val sample =
@@ -24,7 +21,6 @@ fun main() {
       .trimIndent()
   val lexer = StellaLexer(CharStreams.fromString(sample))
   val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-  val typeChecks =
-    program.accept(TypeInferenceVisitor(), TypeInferenceCtx(emptyEnv, TypeCheckVisitor()))
+  val typeChecks = performTypeInference(program)
   println(typeChecks)
 }
