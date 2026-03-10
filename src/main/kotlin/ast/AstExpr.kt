@@ -8,6 +8,8 @@ data class IsZero(val arg: Expr, override val position: Position? = null) : Expr
 
 data class Var(val name: String, override val position: Position? = null) : Expr
 
+data class IntLiteral(val value: Int, override val position: Position? = null) : Expr
+
 data class TrueLiteral(override val position: Position? = null) : Expr
 
 data class FalseLiteral(override val position: Position? = null) : Expr
@@ -25,4 +27,5 @@ data class IfExpression(
   override val position: Position? = null,
 ) : Expr
 
-data class NatRec(val n: Expr, val z: Expr, val step: Expr, override val position: Position?) : Expr
+data class NatRec(val n: Expr, val init: Expr, val step: Expr, override val position: Position?) :
+  Expr

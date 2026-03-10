@@ -7,6 +7,7 @@ import ast.FalseLiteral
 import ast.FunDeclaration
 import ast.FunctionDeclaration
 import ast.IfExpression
+import ast.IntLiteral
 import ast.IsZero
 import ast.NatRec
 import ast.Node
@@ -116,7 +117,14 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> =
         checkType(expr.arg, env, Nat).bind()
         Bool
       }
-    is NatRec -> binding { error("Not implemented yet") }
+    is NatRec ->
+      binding {
+        checkType(expr.n, env, Nat).bind()
+        val exprType = inferExprType(expr.init, env).bind()
+        checkType(expr.step, env, FunType(listOf(Nat), FunType(listOf(exprType), exprType))).bind()
+        exprType
+      }
+    is IntLiteral -> binding { Nat }
   }
 
 fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError> =
