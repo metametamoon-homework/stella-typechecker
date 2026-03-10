@@ -29,3 +29,9 @@ data class IfExpression(
 
 data class NatRec(val n: Expr, val init: Expr, val step: Expr, override val position: Position?) :
   Expr
+
+data class Abstraction(
+  val params: List<ParamDeclaration>,
+  val returnExpr: Expr,
+  override val position: Position? = null,
+) : Expr

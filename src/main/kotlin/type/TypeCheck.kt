@@ -1,5 +1,6 @@
 package type
 
+import ast.Abstraction
 import ast.Application
 import ast.Declaration
 import ast.Expr
@@ -28,6 +29,8 @@ import type.error.withContextLayer
 import type.error.withEmptyContext
 import utils.raise
 
+// a gigantic when is going to be complex, but there is no work around it
+@Suppress("CyclomaticComplexMethod")
 fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualTypeError> =
   when (expr) {
     is Succ ->
@@ -77,8 +80,16 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
         type.Unit
       }
+    is Abstraction ->
+      binding {
+        val abstractionType = inferExprType(expr, env).bind()
+        if (abstractionType != expected) {
+          raise(TypeMismatch(expr, abstractionType, expected).withEmptyContext())
+        }
+        Unit
+      }
 
-    else -> error("Not implemented")
+    else -> error("Not implemented checkType(${expr.javaClass.canonicalName})")
   }
 
 fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> =
@@ -125,6 +136,13 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> =
         exprType
       }
     is IntLiteral -> binding { Nat }
+    is Abstraction ->
+      binding {
+        val paramEnv = expr.params.associate { it.name to it.type.toType() }
+        val updatedEnv = env + paramEnv
+        val returnType = inferExprType(expr.returnExpr, updatedEnv).bind()
+        FunType(expr.params.map { it.type.toType() }, returnType)
+      }
   }
 
 fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError> =
