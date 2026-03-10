@@ -54,6 +54,8 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.IfContext ->
       IfExpression(this.condition!!.toAst(), this.thenExpr!!.toAst(), this.elseExpr!!.toAst())
     is StellaParser.IsZeroContext -> IsZero(this.n!!.toAst())
+    is StellaParser.NatRecContext ->
+      NatRec(this.n!!.toAst(), this.initial!!.toAst(), this.step!!.toAst(), toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -67,5 +69,5 @@ fun StellaParser.StellatypeContext.toAst(): Type =
         returnType = this.returnType!!.toAst(),
         position = toPosition(),
       )
-    else -> error("Unsupported type: ${this::class.simpleName}")
+    else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

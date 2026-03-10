@@ -8,6 +8,7 @@ import ast.FunDeclaration
 import ast.FunctionDeclaration
 import ast.IfExpression
 import ast.IsZero
+import ast.NatRec
 import ast.Node
 import ast.Program
 import ast.Succ
@@ -76,7 +77,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         type.Unit
       }
 
-    is Application -> error("checkType not yet implemented for Application")
+    else -> error("Not implemented")
   }
 
 fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> =
@@ -115,6 +116,7 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> =
         checkType(expr.arg, env, Nat).bind()
         Bool
       }
+    is NatRec -> binding { error("Not implemented yet") }
   }
 
 fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError> =

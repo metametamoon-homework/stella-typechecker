@@ -24,3 +24,5 @@ data class IfExpression(
   val elseBranch: Expr,
   override val position: Position? = null,
 ) : Expr
+
+data class NatRec(val n: Expr, val z: Expr, val step: Expr, override val position: Position?) : Expr

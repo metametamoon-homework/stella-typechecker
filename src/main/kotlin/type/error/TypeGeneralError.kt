@@ -5,14 +5,16 @@ import ast.Var
 
 data class TypeMismatch(
   override val errorNode: Node,
-  val expectedType: type.Type,
-  val actualType: type.Type,
+  private val expectedType: type.Type,
+  private val actualType: type.Type,
 ) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
+  override val userFacingErrorDescription: String
+    get() = "Expected type\n\t$expectedType\nwith actual type\n\t$actualType"
 }
 
 data class UndefinedVariable(override val errorNode: Var) : TypeError {
-  override val errorId: String = "UNDEFINED_VARIABLE_FOR_EXPRESSION"
+  override val errorId: String = "ERROR_UNDEFINED_VARIABLE"
   override val userFacingErrorDescription: String
     get() = "use of undefined identifier ${errorNode.name}"
 }
