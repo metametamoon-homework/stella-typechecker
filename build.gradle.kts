@@ -30,9 +30,10 @@ kotlin {
     freeCompilerArgs.addAll(
       "-Xcontext-parameters",
       "-Xreturn-value-checker=full",
-      "-Werror",
       "-Xwarning-level=ERROR_SUPPRESSION:disabled", // for generated code
     )
+    extraWarnings = true
+    allWarningsAsErrors = true
   }
 }
 
