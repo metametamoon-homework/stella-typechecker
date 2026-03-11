@@ -23,6 +23,7 @@ fun StellaParser.DeclContext.toAst(): Declaration =
       FunctionDeclaration(
         name = this.name?.text ?: "<unknown>",
         parameterDeclarations = this.paramDecls.map { it.toAst() },
+        returnType = this.returnType?.toAst(),
         //        localDeclarations = this.localDecls.map { it.toAst() },
         returnExpr = this.returnExpr!!.toAst(),
         position = toPosition(),
@@ -59,6 +60,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.ConstIntContext -> IntLiteral(this.n?.text?.toIntOrNull()!!, toPosition())
     is StellaParser.AbstractionContext ->
       Abstraction(this.paramDecls.map { it.toAst() }, this.returnExpr!!.toAst(), toPosition())
+    is StellaParser.ConstUnitContext -> UnitConstant(toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -72,5 +74,6 @@ fun StellaParser.StellatypeContext.toAst(): Type =
         returnType = this.returnType!!.toAst(),
         position = toPosition(),
       )
+    is StellaParser.TypeUnitContext -> Type.Unit
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

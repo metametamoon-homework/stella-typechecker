@@ -15,13 +15,16 @@ import ast.Node
 import ast.Program
 import ast.Succ
 import ast.TrueLiteral
+import ast.UnitConstant
 import ast.Var
+import com.github.michaelbull.result.BindingScope
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
+import type.error.NotAFunction
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
@@ -30,120 +33,162 @@ import type.error.withEmptyContext
 import utils.raise
 
 // a gigantic when is going to be complex, but there is no work around it
-@Suppress("CyclomaticComplexMethod")
-fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualTypeError> =
-  when (expr) {
-    is Succ ->
-      binding {
-        if (expected != Nat) {
-          raise(TypeMismatch(expr, expected, Nat).withEmptyContext())
+@Suppress("CyclomaticComplexMethod", "LongMethod")
+fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualTypeError> {
+  val result: Result<Unit, ContextualTypeError> =
+    when (expr) {
+      is Succ ->
+        binding {
+          assertExpectedTypeOrReport(Nat, expected, expr)
+          checkType(expr.expr, env, expected).bind()
         }
-        checkType(expr.expr, env, expected).bind()
-      }
 
-    is Var ->
-      binding {
-        val actual = env[expr.name] ?: raise(UndefinedVariable(expr).withEmptyContext())
-        if (actual != expected) {
-          raise(TypeMismatch(expr, expected, actual).withEmptyContext())
+      is Var ->
+        binding {
+          val actual = env[expr.name] ?: raise(UndefinedVariable(expr).withEmptyContext())
+          assertExpectedTypeOrReport(actual, expected, expr)
+          Unit
         }
-        type.Unit
-      }
 
-    is TrueLiteral ->
-      binding {
-        if (expected != Bool) {
-          raise(TypeMismatch(expr, expected, expected).withEmptyContext())
+      is TrueLiteral ->
+        binding {
+          assertExpectedTypeOrReport(Bool, expected, expr)
+          Unit
         }
-        type.Unit
-      }
 
-    is FalseLiteral ->
-      binding {
-        if (expected != Bool) {
-          raise(TypeMismatch(expr, Bool, expected).withEmptyContext())
+      is FalseLiteral ->
+        binding {
+          assertExpectedTypeOrReport(Bool, expected, expr)
+          Unit
         }
-        type.Unit
-      }
 
-    is IfExpression ->
-      binding {
-        checkType(expr.cond, env, Bool).bind()
-        checkType(expr.thenBranch, env, expected).bind()
-        checkType(expr.elseBranch, env, expected).bind()
-      }
-
-    is IsZero ->
-      binding {
-        if (expected != Nat) {
-          raise(TypeMismatch(expr, Nat, expected).withEmptyContext())
+      is IfExpression ->
+        binding {
+          checkType(expr.cond, env, Bool).bind()
+          checkType(expr.thenBranch, env, expected).bind()
+          checkType(expr.elseBranch, env, expected).bind()
         }
-        type.Unit
-      }
-    is Abstraction ->
-      binding {
-        val abstractionType = inferExprType(expr, env).bind()
-        if (abstractionType != expected) {
-          raise(TypeMismatch(expr, abstractionType, expected).withEmptyContext())
-        }
-        Unit
-      }
 
-    else -> error("Not implemented checkType(${expr.javaClass.canonicalName})")
+      is IsZero ->
+        binding {
+          assertExpectedTypeOrReport(Bool, expected, expr)
+          checkType(expr.arg, env, Nat).bind()
+          Unit
+        }
+
+      is Abstraction ->
+        binding {
+          val abstractionType = inferExprType(expr, env).bind()
+          assertExpectedTypeOrReport(abstractionType, expected, expr)
+          Unit
+        }
+
+      is UnitConstant ->
+        binding {
+          assertExpectedTypeOrReport(type.Unit, expected, expr)
+          Unit
+        }
+
+      is Application ->
+        binding {
+          val leftType = inferExprType(expr.func, env).bind()
+          if (leftType !is FunType) {
+            raise(NotAFunction(expr.func).withEmptyContext())
+          }
+          checkType(expr.args.single(), env, leftType.inputTypes.single()).bind()
+          if (leftType.retType != expected) {
+            raise(TypeMismatch(expr, expected, leftType.retType).withEmptyContext())
+          }
+          Unit
+        }
+      is IntLiteral ->
+        binding {
+          assertExpectedTypeOrReport(Nat, expected, expr)
+          Unit
+        }
+      is NatRec ->
+        binding {
+          checkType(expr.n, env, Nat).bind()
+          val initType = inferType(expr.init, env).bind()
+          val expectedStepType = FunType(listOf(Nat), FunType(listOf(initType), initType))
+          checkType(expr.step, env, expectedStepType).bind()
+          Unit
+        }
+    }
+  return result.wrapWhileTypechecking(expr, expected)
+}
+
+private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
+  actualType: type.Type,
+  expected: type.Type,
+  expr: Expr,
+) {
+  if (actualType != expected) {
+    raise(TypeMismatch(expr, expected, actualType).withEmptyContext())
   }
+}
 
-fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> =
-  when (expr) {
-    is Succ ->
-      binding {
-        checkType(expr.expr, env, Nat).wrapError(expr).bind()
-        Nat
-      }
-
-    is Var -> binding { env[expr.name] ?: raise(UndefinedVariable(expr).withEmptyContext()) }
-
-    is Application ->
-      binding {
-        val funcType = inferExprType(expr.func, env).wrapError(expr).bind()
-        if (funcType !is FunType) {
-          raise(ApplicantNotOfFunctionType(expr).withEmptyContext())
+fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
+  val result: Result<Type, ContextualTypeError> =
+    when (expr) {
+      is Succ ->
+        binding {
+          checkType(expr.expr, env, Nat).bind()
+          Nat
         }
-        checkType(expr.args.single(), env, funcType.inputTypes.single()).wrapError(expr).bind()
-        funcType.retType
-      }
 
-    is TrueLiteral -> Ok(Bool)
-    is FalseLiteral -> Ok(Bool)
+      is Var -> binding { env[expr.name] ?: raise(UndefinedVariable(expr).withEmptyContext()) }
 
-    is IfExpression ->
-      binding {
-        checkType(expr.cond, env, Bool).bind()
-        val inferredType = inferExprType(expr.thenBranch, env).bind()
-        checkType(expr.cond, env, inferredType).bind()
-        inferredType
-      }
+      is Application ->
+        binding {
+          val funcType = inferExprType(expr.func, env).bind()
+          if (funcType !is FunType) {
+            raise(ApplicantNotOfFunctionType(expr).withEmptyContext())
+          }
+          checkType(expr.args.single(), env, funcType.inputTypes.single()).bind()
 
-    is IsZero ->
-      binding {
-        checkType(expr.arg, env, Nat).bind()
-        Bool
-      }
-    is NatRec ->
-      binding {
-        checkType(expr.n, env, Nat).bind()
-        val exprType = inferExprType(expr.init, env).bind()
-        checkType(expr.step, env, FunType(listOf(Nat), FunType(listOf(exprType), exprType))).bind()
-        exprType
-      }
-    is IntLiteral -> binding { Nat }
-    is Abstraction ->
-      binding {
-        val paramEnv = expr.params.associate { it.name to it.type.toType() }
-        val updatedEnv = env + paramEnv
-        val returnType = inferExprType(expr.returnExpr, updatedEnv).bind()
-        FunType(expr.params.map { it.type.toType() }, returnType)
-      }
-  }
+          funcType.retType
+        }
+
+      is TrueLiteral -> Ok(Bool)
+      is FalseLiteral -> Ok(Bool)
+
+      is IfExpression ->
+        binding {
+          checkType(expr.cond, env, Bool).bind()
+          val inferredType = inferExprType(expr.thenBranch, env).bind()
+          checkType(expr.elseBranch, env, inferredType).bind()
+          inferredType
+        }
+
+      is IsZero ->
+        binding {
+          checkType(expr.arg, env, Nat).bind()
+          Bool
+        }
+
+      is NatRec ->
+        binding {
+          checkType(expr.n, env, Nat).bind()
+          val exprType = inferExprType(expr.init, env).bind()
+          checkType(expr.step, env, FunType(listOf(Nat), FunType(listOf(exprType), exprType)))
+            .bind()
+          exprType
+        }
+
+      is IntLiteral -> binding { Nat }
+      is Abstraction ->
+        binding {
+          val paramEnv = expr.params.associate { it.name to it.type.toType() }
+          val updatedEnv = env + paramEnv
+          val returnType = inferExprType(expr.returnExpr, updatedEnv).bind()
+          FunType(expr.params.map { it.type.toType() }, returnType)
+        }
+
+      is UnitConstant -> binding { type.Unit }
+    }
+  return result.wrapWhileInferring(expr)
+}
 
 fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError> =
   when (decl) {
@@ -151,9 +196,16 @@ fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError
       binding {
         val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
         val updatedEnv = env + paramEnv
-        val inferredRetType = inferExprType(decl.returnExpr, updatedEnv).wrapError(decl).bind()
+        val specifiedReturnType = decl.returnType?.toType()
+        val returnType =
+          if (specifiedReturnType != null) {
+            checkType(decl.returnExpr, updatedEnv, specifiedReturnType).bind()
+            specifiedReturnType
+          } else {
+            inferExprType(decl.returnExpr, updatedEnv).wrapWhileInferring(decl).bind()
+          }
         val inputParams = decl.parameterDeclarations.map { it.type.toType() }
-        FunType(inputParams, inferredRetType)
+        FunType(inputParams, returnType)
       }
 
     is FunDeclaration -> error("inferDeclType not yet implemented for FunDeclaration")
@@ -162,7 +214,7 @@ fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError
 fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeError> = binding {
   var currentEnv = env
   for (declaration in program.declarations) {
-    val inferredType = inferDeclType(declaration, currentEnv).wrapError(program).bind()
+    val inferredType = inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
     if (declaration is FunctionDeclaration) {
       currentEnv = currentEnv + (declaration.name to inferredType)
     }
@@ -170,14 +222,19 @@ fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeErr
   type.Unit
 }
 
-fun performTypeInference(node: Node): Result<Type, ContextualTypeError> =
+fun inferType(node: Node, env: Env = emptyEnv): Result<Type, ContextualTypeError> =
   when (node) {
-    is Program -> inferProgramType(node, defaultEnv)
-    is Expr -> inferExprType(node, defaultEnv)
-    is Declaration -> inferDeclType(node, defaultEnv)
+    is Program -> inferProgramType(node, env)
+    is Expr -> inferExprType(node, env)
+    is Declaration -> inferDeclType(node, env)
     else -> error("Unsupported type inference for ${node::class.simpleName}")
   }
 
-private fun <V> Result<V, ContextualTypeError>.wrapError(currentNode: Node) = mapError {
+private fun <V> Result<V, ContextualTypeError>.wrapWhileInferring(currentNode: Node) = mapError {
   it.withContextLayer(TypeErrorFrame.WhileInferring(currentNode))
 }
+
+private fun <V> Result<V, ContextualTypeError>.wrapWhileTypechecking(
+  currentNode: Node,
+  expected: Type,
+) = mapError { it.withContextLayer(TypeErrorFrame.WhileTypeChecking(currentNode, expected)) }

@@ -13,7 +13,7 @@ import org.antlr.v4.kotlinruntime.CommonTokenStream
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import type.error.prettyPrintError
-import type.performTypeInference
+import type.inferType
 
 internal const val STELLA_EXTENSION = "stella"
 
@@ -31,7 +31,9 @@ class TypeCheckerTest {
         val path = sourceFile.relativeTo(testsRoot).path
         if (filterRegex.matches(path)) {
           val sourceRelativePath = path.removeSuffix(".$STELLA_EXTENSION")
-          DynamicTest.dynamicTest(sourceRelativePath) { typeCheckTest(sourceFile) }
+          DynamicTest.dynamicTest(sourceRelativePath, sourceFile.toURI()) {
+            typeCheckTest(sourceFile)
+          }
         } else {
           null
         }
@@ -53,7 +55,7 @@ class TypeCheckerTest {
 
     val lexer = StellaLexer(CharStreams.fromString(sourceText))
     val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-    val result = performTypeInference(program)
+    val result = inferType(program)
 
     result.mapBoth(
       success = { println("Successfully typed!") },

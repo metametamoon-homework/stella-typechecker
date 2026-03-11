@@ -32,6 +32,10 @@ sealed interface Type : Node {
     override val position: Position? = null
   }
 
+  data object Unit : Type {
+    override val position: Position? = null
+  }
+
   data object Nat : Type {
     override val position: Position? = null
   }
@@ -46,6 +50,7 @@ sealed interface Type : Node {
 data class FunctionDeclaration(
   val name: String,
   val parameterDeclarations: List<ParamDeclaration>,
+  val returnType: Type?,
   val returnExpr: Expr,
   override val position: Position? = null,
 ) : Declaration

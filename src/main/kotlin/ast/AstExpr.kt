@@ -35,3 +35,5 @@ data class Abstraction(
   val returnExpr: Expr,
   override val position: Position? = null,
 ) : Expr
+
+data class UnitConstant(override val position: Position? = null) : Expr

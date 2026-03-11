@@ -29,13 +29,13 @@ fun ContextualTypeError.prettyPrintError(path: String): String = buildString {
       is TypeErrorFrame.WhileInferring -> {
         val simpleName = frame.node.javaClass.simpleName
         val stringRangeOrNothing = frame.node.getStringRangeOrNothing()
-        appendLine("    while inferring type of $simpleName $stringRangeOrNothing")
+        appendLine("- while inferring type of $simpleName $stringRangeOrNothing")
       }
 
       is TypeErrorFrame.WhileTypeChecking -> {
         val simpleName = frame.node.javaClass.simpleName
         val stringRangeOrNothing = frame.node.getStringRangeOrNothing()
-        appendLine("    while checking type of $simpleName $stringRangeOrNothing is ${frame.type}")
+        appendLine("- while checking type of $simpleName $stringRangeOrNothing is ${frame.type}")
       }
     }
   }

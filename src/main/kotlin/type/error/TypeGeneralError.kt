@@ -1,6 +1,8 @@
 package type.error
 
+import ast.Expr
 import ast.Node
+import ast.Type
 import ast.Var
 
 data class TypeMismatch(
@@ -17,4 +19,8 @@ data class UndefinedVariable(override val errorNode: Var) : TypeError {
   override val errorId: String = "ERROR_UNDEFINED_VARIABLE"
   override val userFacingErrorDescription: String
     get() = "use of undefined identifier ${errorNode.name}"
+}
+
+data class NotAFunction(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_NOT_A_FUNCTION"
 }
