@@ -24,3 +24,11 @@ data class UndefinedVariable(override val errorNode: Var) : TypeError {
 data class NotAFunction(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_FUNCTION"
 }
+
+data class NotATuple(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_NOT_A_TUPLE"
+}
+
+data class TupleIndexOutOfBound(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "TUPLE_INDEX_OUT_OF_BOUND"
+}

@@ -3,6 +3,7 @@ import generated.antlr.StellaLexer
 import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
+import type.emptyEnv
 import type.inferType
 
 fun main() {
@@ -21,6 +22,6 @@ fun main() {
       .trimIndent()
   val lexer = StellaLexer(CharStreams.fromString(sample))
   val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-  val typeChecks = inferType(program)
+  val typeChecks = inferType(program, emptyEnv)
   println(typeChecks)
 }

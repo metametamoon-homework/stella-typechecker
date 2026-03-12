@@ -45,6 +45,10 @@ sealed interface Type : Node {
     val returnType: Type,
     override val position: Position? = null,
   ) : Type
+
+  data class Tuple(val projections: List<Type>, override val position: Position? = null) : Type
+
+  data class Record(val projections: Map<String, Type>, override val position: Position? = null) : Type
 }
 
 data class FunctionDeclaration(

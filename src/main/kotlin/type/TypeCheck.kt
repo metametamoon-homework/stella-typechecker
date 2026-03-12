@@ -15,9 +15,12 @@ import ast.Node
 import ast.Program
 import ast.Succ
 import ast.TrueLiteral
+import ast.TupleDotExpression
+import ast.TupleLiteral
 import ast.UnitConstant
 import ast.Var
 import com.github.michaelbull.result.BindingScope
+import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
@@ -25,6 +28,9 @@ import com.github.michaelbull.result.mapError
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
 import type.error.NotAFunction
+import type.error.NotATuple
+import type.error.TupleIndexOutOfBound
+import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
@@ -85,7 +91,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
 
       is UnitConstant ->
         binding {
-          assertExpectedTypeOrReport(type.Unit, expected, expr)
+          assertExpectedTypeOrReport(Unit, expected, expr)
           Unit
         }
 
@@ -114,9 +120,26 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           checkType(expr.step, env, expectedStepType).bind()
           Unit
         }
+
+      is TupleLiteral ->
+        binding {
+          val projectionTypes = expr.projections.map { inferType(it, env).bind() }
+          val actualType = TupleType(projectionTypes)
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
+      is TupleDotExpression ->
+        binding {
+          val actualType = inferExprType(expr, env).bind()
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
     }
   return result.wrapWhileTypechecking(expr, expected)
 }
+
+private fun BindingScope<ContextualTypeError>.raise(e: TypeError): Nothing =
+  Err(e.withEmptyContext()).bind()
 
 private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
   actualType: type.Type,
@@ -128,6 +151,8 @@ private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
   }
 }
 
+// a gigantic when is going to be complex, but there is no work around it
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
   val result: Result<Type, ContextualTypeError> =
     when (expr) {
@@ -185,7 +210,24 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           FunType(expr.params.map { it.type.toType() }, returnType)
         }
 
-      is UnitConstant -> binding { type.Unit }
+      is UnitConstant -> binding { Unit }
+      is TupleLiteral ->
+        binding {
+          val projectionTypes = expr.projections.map { inferType(it, env).bind() }
+          TupleType(projectionTypes)
+        }
+
+      is TupleDotExpression ->
+        binding {
+          val receiverType = inferType(expr.tupleExpr, env).bind()
+          if (receiverType !is TupleType) {
+            raise(NotATuple(expr))
+          }
+          if (receiverType.projections.size < expr.index) {
+            raise(TupleIndexOutOfBound(expr))
+          }
+          receiverType.projections[expr.index - 1]
+        }
     }
   return result.wrapWhileInferring(expr)
 }
@@ -222,7 +264,7 @@ fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeErr
   type.Unit
 }
 
-fun inferType(node: Node, env: Env = emptyEnv): Result<Type, ContextualTypeError> =
+fun inferType(node: Node, env: Env): Result<Type, ContextualTypeError> =
   when (node) {
     is Program -> inferProgramType(node, env)
     is Expr -> inferExprType(node, env)

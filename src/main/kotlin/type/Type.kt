@@ -10,6 +10,9 @@ data object Bool : Type
 
 data class FunType(val inputTypes: List<Type>, val retType: Type) : Type
 
+data class TupleType(val projections: List<Type>) : Type
+data class RecordType(val projections: List<Type>) : Type
+
 typealias Env = Map<String, Type>
 
 val emptyEnv: Env = emptyMap()

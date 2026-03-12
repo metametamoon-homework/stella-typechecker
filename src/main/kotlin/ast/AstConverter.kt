@@ -39,6 +39,8 @@ fun StellaParser.ParamDeclContext.toAst(): ParamDeclaration {
   )
 }
 
+// a gigantic when is going to be complex, but there is no work around it
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 fun StellaParser.ExprContext.toAst(): Expr =
   when (this) {
     is StellaParser.SuccContext -> Succ(expr = this.n!!.toAst(), position = toPosition())
@@ -53,14 +55,22 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.ConstTrueContext -> TrueLiteral(toPosition())
     is StellaParser.ConstFalseContext -> FalseLiteral(toPosition())
     is StellaParser.IfContext ->
-      IfExpression(this.condition!!.toAst(), this.thenExpr!!.toAst(), this.elseExpr!!.toAst())
-    is StellaParser.IsZeroContext -> IsZero(this.n!!.toAst())
+      IfExpression(
+        this.condition!!.toAst(),
+        this.thenExpr!!.toAst(),
+        this.elseExpr!!.toAst(),
+        toPosition(),
+      )
+    is StellaParser.IsZeroContext -> IsZero(this.n!!.toAst(), toPosition())
     is StellaParser.NatRecContext ->
       NatRec(this.n!!.toAst(), this.initial!!.toAst(), this.step!!.toAst(), toPosition())
     is StellaParser.ConstIntContext -> IntLiteral(this.n?.text?.toIntOrNull()!!, toPosition())
     is StellaParser.AbstractionContext ->
       Abstraction(this.paramDecls.map { it.toAst() }, this.returnExpr!!.toAst(), toPosition())
     is StellaParser.ConstUnitContext -> UnitConstant(toPosition())
+    is StellaParser.TupleContext -> TupleLiteral(this.exprs.map { it.toAst() }, toPosition())
+    is StellaParser.DotTupleContext ->
+      TupleDotExpression(this.expr_!!.toAst(), this.index?.text!!.toInt(), toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -75,5 +85,7 @@ fun StellaParser.StellatypeContext.toAst(): Type =
         position = toPosition(),
       )
     is StellaParser.TypeUnitContext -> Type.Unit
+    is StellaParser.TypeTupleContext -> Type.Tuple(this.types.map { it.toAst() })
+    is StellaParser.TypeRecordContext -> Type.Record(this.fieldTypes.associate { it.text to it.type_!!.toAst() })
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }
