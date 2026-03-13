@@ -2,6 +2,7 @@ package type
 
 import ast.Abstraction
 import ast.Application
+import ast.Binding
 import ast.Declaration
 import ast.Expr
 import ast.FalseLiteral
@@ -10,8 +11,10 @@ import ast.FunctionDeclaration
 import ast.IfExpression
 import ast.IntLiteral
 import ast.IsZero
+import ast.LetBinding
 import ast.NatRec
 import ast.Node
+import ast.Pattern
 import ast.Program
 import ast.RecordDotExpression
 import ast.RecordLiteral
@@ -41,6 +44,24 @@ import type.error.UnexpectedRecordField
 import type.error.withContextLayer
 import type.error.withEmptyContext
 import utils.raise
+
+fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTypeError> =
+  when (pattern) {
+    is Pattern.Variable -> Ok(mapOf(pattern.name to type))
+  }
+
+private fun BindingScope<ContextualTypeError>.resolveBindings(
+  bindings: List<Binding>,
+  env: Env,
+): Env {
+  var currentEnv = env
+  for (binding in bindings) {
+    val rhsType = inferExprType(binding.expr, currentEnv).bind()
+    val envUpdate = matchPatternWithType(binding.pattern, rhsType).bind()
+    currentEnv = currentEnv + envUpdate
+  }
+  return currentEnv
+}
 
 // a gigantic when is going to be complex, but there is no work around it
 @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -151,6 +172,13 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           assertExpectedTypeOrReport(actualType, expected, expr)
           Unit
         }
+
+      is LetBinding ->
+        binding {
+          val updatedEnv = resolveBindings(expr.bindings, env)
+          checkType(expr.body, updatedEnv, expected).bind()
+        }
+      is Pattern.Variable -> error("unreachable")
     }
   return result.wrapWhileTypechecking(expr, expected)
 }
@@ -258,6 +286,12 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           }
           receiverType.fields[expr.label] ?: raise(UnexpectedRecordField(expr, expr.label))
         }
+      is LetBinding ->
+        binding {
+          val updatedEnv = resolveBindings(expr.bindings, env)
+          inferExprType(expr.body, updatedEnv).bind()
+        }
+      is Pattern.Variable -> error("unreachable")
     }
   return result.wrapWhileInferring(expr)
 }

@@ -50,3 +50,15 @@ data class RecordDotExpression(
   val label: String,
   override val position: Position?,
 ) : Expr
+
+sealed interface Pattern : Expr {
+  data class Variable(val name: String, override val position: Position?) : Pattern
+}
+
+data class Binding(val pattern: Pattern, val expr: Expr)
+
+data class LetBinding(
+  val bindings: List<Binding>,
+  val body: Expr,
+  override val position: Position?,
+) : Expr

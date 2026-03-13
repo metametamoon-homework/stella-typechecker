@@ -75,7 +75,23 @@ fun StellaParser.ExprContext.toAst(): Expr =
       RecordLiteral(this.bindings.associate { it.name?.text!! to it.rhs!!.toAst() }, toPosition())
     is StellaParser.DotRecordContext ->
       RecordDotExpression(this.expr_!!.toAst(), this.label?.text!!, toPosition())
+    is StellaParser.LetContext ->
+      LetBinding(
+        bindings = this.patternBindings.map { it.toAst() },
+        body = this.body!!.toAst(),
+        position = toPosition(),
+      )
     else -> error("Unsupported expression: ${this::class.simpleName}")
+  }
+
+fun StellaParser.PatternBindingContext.toAst(): Binding =
+  Binding(pattern = this.pat!!.toAst(), expr = this.rhs!!.toAst())
+
+fun StellaParser.PatternContext.toAst(): Pattern =
+  when (this) {
+    is StellaParser.PatternVarContext ->
+      Pattern.Variable(name = this.name?.text ?: "<unknown>", position = toPosition())
+    else -> error("Unsupported pattern: ${this::class.simpleName}")
   }
 
 fun StellaParser.StellatypeContext.toAst(): Type =
