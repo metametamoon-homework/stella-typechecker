@@ -32,3 +32,13 @@ data class NotATuple(override val errorNode: Expr) : TypeError {
 data class TupleIndexOutOfBound(override val errorNode: Expr) : TypeError {
   override val errorId: String = "TUPLE_INDEX_OUT_OF_BOUND"
 }
+
+data class NotARecord(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_NOT_A_RECORD"
+}
+
+data class UnexpectedRecordField(override val errorNode: Expr, val label: String) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_RECORD_FIELD"
+  override val userFacingErrorDescription: String
+    get() = "record does not have field '$label'"
+}

@@ -71,6 +71,10 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.TupleContext -> TupleLiteral(this.exprs.map { it.toAst() }, toPosition())
     is StellaParser.DotTupleContext ->
       TupleDotExpression(this.expr_!!.toAst(), this.index?.text!!.toInt(), toPosition())
+    is StellaParser.RecordContext ->
+      RecordLiteral(this.bindings.associate { it.name?.text!! to it.rhs!!.toAst() }, toPosition())
+    is StellaParser.DotRecordContext ->
+      RecordDotExpression(this.expr_!!.toAst(), this.label?.text!!, toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -86,6 +90,7 @@ fun StellaParser.StellatypeContext.toAst(): Type =
       )
     is StellaParser.TypeUnitContext -> Type.Unit
     is StellaParser.TypeTupleContext -> Type.Tuple(this.types.map { it.toAst() })
-    is StellaParser.TypeRecordContext -> Type.Record(this.fieldTypes.associate { it.text to it.type_!!.toAst() })
+    is StellaParser.TypeRecordContext ->
+      Type.Record(this.fieldTypes.associate { it.label?.text!! to it.type_!!.toAst() })
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

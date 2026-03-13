@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_RECORD_FIELD",
+    "location": "16:10"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(n : { a : Nat }) -> Nat {
+  return n.b
+}

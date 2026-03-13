@@ -42,3 +42,11 @@ data class TupleDotExpression(
   val index: Int,
   override val position: Position?,
 ) : Expr
+
+data class RecordLiteral(val bindings: Map<String, Expr>, override val position: Position?) : Expr
+
+data class RecordDotExpression(
+  val recordExpr: Expr,
+  val label: String,
+  override val position: Position?,
+) : Expr

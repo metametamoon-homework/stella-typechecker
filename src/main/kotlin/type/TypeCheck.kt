@@ -13,6 +13,8 @@ import ast.IsZero
 import ast.NatRec
 import ast.Node
 import ast.Program
+import ast.RecordDotExpression
+import ast.RecordLiteral
 import ast.Succ
 import ast.TrueLiteral
 import ast.TupleDotExpression
@@ -28,12 +30,14 @@ import com.github.michaelbull.result.mapError
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
 import type.error.NotAFunction
+import type.error.NotARecord
 import type.error.NotATuple
 import type.error.TupleIndexOutOfBound
 import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
+import type.error.UnexpectedRecordField
 import type.error.withContextLayer
 import type.error.withEmptyContext
 import utils.raise
@@ -134,6 +138,19 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           assertExpectedTypeOrReport(actualType, expected, expr)
           Unit
         }
+      is RecordLiteral ->
+        binding {
+          val fieldTypes = expr.bindings.mapValues { (_, v) -> inferType(v, env).bind() }
+          val actualType = RecordType(fieldTypes)
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
+      is RecordDotExpression ->
+        binding {
+          val actualType = inferExprType(expr, env).bind()
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
     }
   return result.wrapWhileTypechecking(expr, expected)
 }
@@ -227,6 +244,19 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
             raise(TupleIndexOutOfBound(expr))
           }
           receiverType.projections[expr.index - 1]
+        }
+      is RecordLiteral ->
+        binding {
+          val fieldTypes = expr.bindings.mapValues { (_, v) -> inferType(v, env).bind() }
+          RecordType(fieldTypes)
+        }
+      is RecordDotExpression ->
+        binding {
+          val receiverType = inferType(expr.recordExpr, env).bind()
+          if (receiverType !is RecordType) {
+            raise(NotARecord(expr))
+          }
+          receiverType.fields[expr.label] ?: raise(UnexpectedRecordField(expr, expr.label))
         }
     }
   return result.wrapWhileInferring(expr)
