@@ -22,6 +22,7 @@ import ast.Succ
 import ast.TrueLiteral
 import ast.TupleDotExpression
 import ast.TupleLiteral
+import ast.TypeAscription
 import ast.UnitConstant
 import ast.Var
 import com.github.michaelbull.result.BindingScope
@@ -173,6 +174,14 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           Unit
         }
 
+      is TypeAscription ->
+        binding {
+          val ascribed = expr.type.toType()
+          checkType(expr.expr, env, ascribed).bind()
+          assertExpectedTypeOrReport(ascribed, expected, expr)
+          Unit
+        }
+
       is LetBinding ->
         binding {
           val updatedEnv = resolveBindings(expr.bindings, env)
@@ -286,6 +295,13 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           }
           receiverType.fields[expr.label] ?: raise(UnexpectedRecordField(expr, expr.label))
         }
+      is TypeAscription ->
+        binding {
+          val ascribed = expr.type.toType()
+          checkType(expr.expr, env, ascribed).bind()
+          ascribed
+        }
+
       is LetBinding ->
         binding {
           val updatedEnv = resolveBindings(expr.bindings, env)

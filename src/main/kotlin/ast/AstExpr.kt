@@ -57,6 +57,8 @@ sealed interface Pattern : Expr {
 
 data class Binding(val pattern: Pattern, val expr: Expr)
 
+data class TypeAscription(val expr: Expr, val type: Type, override val position: Position?) : Expr
+
 data class LetBinding(
   val bindings: List<Binding>,
   val body: Expr,

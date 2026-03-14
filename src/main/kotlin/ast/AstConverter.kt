@@ -75,6 +75,12 @@ fun StellaParser.ExprContext.toAst(): Expr =
       RecordLiteral(this.bindings.associate { it.name?.text!! to it.rhs!!.toAst() }, toPosition())
     is StellaParser.DotRecordContext ->
       RecordDotExpression(this.expr_!!.toAst(), this.label?.text!!, toPosition())
+    is StellaParser.TypeAscContext ->
+      TypeAscription(
+        expr = this.expr_!!.toAst(),
+        type = this.type_!!.toAst(),
+        position = toPosition(),
+      )
     is StellaParser.LetContext ->
       LetBinding(
         bindings = this.patternBindings.map { it.toAst() },
