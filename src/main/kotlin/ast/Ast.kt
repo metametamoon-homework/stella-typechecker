@@ -50,6 +50,8 @@ sealed interface Type : Node {
 
   data class Record(val projections: Map<String, Type>, override val position: Position? = null) :
     Type
+
+  data class Sum(val left: Type, val right: Type, override val position: Position? = null) : Type
 }
 
 data class FunctionDeclaration(

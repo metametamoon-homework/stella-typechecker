@@ -1,0 +1,14 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+
+fn main(x : Bool) -> Nat + Bool {
+  return inr(x)
+}

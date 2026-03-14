@@ -9,9 +9,12 @@ import ast.FalseLiteral
 import ast.FunDeclaration
 import ast.FunctionDeclaration
 import ast.IfExpression
+import ast.Inl
+import ast.Inr
 import ast.IntLiteral
 import ast.IsZero
 import ast.LetBinding
+import ast.Match
 import ast.NatRec
 import ast.Node
 import ast.Pattern
@@ -31,10 +34,12 @@ import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
+import type.error.AmbiguousSumType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
 import type.error.NotAFunction
 import type.error.NotARecord
+import type.error.NotASumType
 import type.error.NotATuple
 import type.error.TupleIndexOutOfBound
 import type.error.TypeError
@@ -49,6 +54,16 @@ import utils.raise
 fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTypeError> =
   when (pattern) {
     is Pattern.Variable -> Ok(mapOf(pattern.name to type))
+    is Pattern.Inl ->
+      binding {
+        if (type !is SumType) raise(NotASumType(pattern).withEmptyContext())
+        matchPatternWithType(pattern.inner, type.left).bind()
+      }
+    is Pattern.Inr ->
+      binding {
+        if (type !is SumType) raise(NotASumType(pattern).withEmptyContext())
+        matchPatternWithType(pattern.inner, type.right).bind()
+      }
   }
 
 private fun BindingScope<ContextualTypeError>.resolveBindings(
@@ -187,7 +202,28 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           val updatedEnv = resolveBindings(expr.bindings, env)
           checkType(expr.body, updatedEnv, expected).bind()
         }
+      is Inl ->
+        binding {
+          if (expected !is SumType) raise(TypeMismatch(expr, expected, SumType(Unit, Unit)))
+          checkType(expr.expr, env, expected.left).bind()
+        }
+      is Inr ->
+        binding {
+          if (expected !is SumType) raise(TypeMismatch(expr, expected, SumType(Unit, Unit)))
+          checkType(expr.expr, env, expected.right).bind()
+        }
+      is Match ->
+        binding {
+          val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+          for (case in expr.cases) {
+            val patEnv = matchPatternWithType(case.pattern, scrutineeType).bind()
+            checkType(case.expr, env + patEnv, expected).bind()
+          }
+          Unit
+        }
       is Pattern.Variable -> error("unreachable")
+      is Pattern.Inl -> error("unreachable")
+      is Pattern.Inr -> error("unreachable")
     }
   return result.wrapWhileTypechecking(expr, expected)
 }
@@ -308,6 +344,22 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           inferExprType(expr.body, updatedEnv).bind()
         }
       is Pattern.Variable -> error("unreachable")
+      is Inl -> Err(AmbiguousSumType(expr).withEmptyContext())
+      is Inr -> Err(AmbiguousSumType(expr).withEmptyContext())
+      is Match ->
+        binding {
+          val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+          val firstCase = expr.cases.firstOrNull() ?: error("empty match")
+          val firstPatEnv = matchPatternWithType(firstCase.pattern, scrutineeType).bind()
+          val resultType = inferExprType(firstCase.expr, env + firstPatEnv).bind()
+          for (case in expr.cases.drop(1)) {
+            val patEnv = matchPatternWithType(case.pattern, scrutineeType).bind()
+            checkType(case.expr, env + patEnv, resultType).bind()
+          }
+          resultType
+        }
+      is Pattern.Inl -> error("unreachable")
+      is Pattern.Inr -> error("unreachable")
     }
   return result.wrapWhileInferring(expr)
 }

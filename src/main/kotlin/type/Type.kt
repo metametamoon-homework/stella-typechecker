@@ -14,6 +14,8 @@ data class TupleType(val projections: List<Type>) : Type
 
 data class RecordType(val fields: Map<String, Type>) : Type
 
+data class SumType(val left: Type, val right: Type) : Type
+
 typealias Env = Map<String, Type>
 
 val emptyEnv: Env = emptyMap()

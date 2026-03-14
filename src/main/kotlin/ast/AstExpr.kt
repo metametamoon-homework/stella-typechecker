@@ -51,8 +51,24 @@ data class RecordDotExpression(
   override val position: Position?,
 ) : Expr
 
+data class Inl(val expr: Expr, override val position: Position?) : Expr
+
+data class Inr(val expr: Expr, override val position: Position?) : Expr
+
+data class MatchCase(val pattern: Pattern, val expr: Expr)
+
+data class Match(
+  val scrutinee: Expr,
+  val cases: List<MatchCase>,
+  override val position: Position?,
+) : Expr
+
 sealed interface Pattern : Expr {
   data class Variable(val name: String, override val position: Position?) : Pattern
+
+  data class Inl(val inner: Pattern, override val position: Position?) : Pattern
+
+  data class Inr(val inner: Pattern, override val position: Position?) : Pattern
 }
 
 data class Binding(val pattern: Pattern, val expr: Expr)

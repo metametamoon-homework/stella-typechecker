@@ -42,3 +42,11 @@ data class UnexpectedRecordField(override val errorNode: Expr, val label: String
   override val userFacingErrorDescription: String
     get() = "record does not have field '$label'"
 }
+
+data class AmbiguousSumType(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_SUM_TYPE"
+}
+
+data class NotASumType(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
+}
