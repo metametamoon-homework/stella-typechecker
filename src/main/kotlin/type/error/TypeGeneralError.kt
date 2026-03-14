@@ -53,3 +53,7 @@ data class NotASumType(override val errorNode: Expr) : TypeError {
 data class NonExhaustivePatternMatching(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NONEXHAUSTIVE_MATCH_PATTERNS"
 }
+
+data class MissingMain(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_MISSING_MAIN"
+}

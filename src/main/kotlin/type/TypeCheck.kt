@@ -37,6 +37,7 @@ import com.github.michaelbull.result.mapError
 import type.error.AmbiguousSumType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
+import type.error.MissingMain
 import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
 import type.error.NotARecord
@@ -57,12 +58,12 @@ fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTy
     is Pattern.Variable -> Ok(mapOf(pattern.name to type))
     is Pattern.Inl ->
       binding {
-        if (type !is SumType) raise(NotASumType(pattern).withEmptyContext())
+        if (type !is SumType) raise(NotASumType(pattern))
         matchPatternWithType(pattern.inner, type.left).bind()
       }
     is Pattern.Inr ->
       binding {
-        if (type !is SumType) raise(NotASumType(pattern).withEmptyContext())
+        if (type !is SumType) raise(NotASumType(pattern))
         matchPatternWithType(pattern.inner, type.right).bind()
       }
   }
@@ -93,7 +94,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
 
       is Var ->
         binding {
-          val actual = env[expr.name] ?: raise(UndefinedVariable(expr).withEmptyContext())
+          val actual = env[expr.name] ?: raise(UndefinedVariable(expr))
           assertExpectedTypeOrReport(actual, expected, expr)
           Unit
         }
@@ -141,11 +142,11 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         binding {
           val leftType = inferExprType(expr.func, env).bind()
           if (leftType !is FunType) {
-            raise(NotAFunction(expr.func).withEmptyContext())
+            raise(NotAFunction(expr.func))
           }
           checkType(expr.args.single(), env, leftType.inputTypes.single()).bind()
           if (leftType.retType != expected) {
-            raise(TypeMismatch(expr, expected, leftType.retType).withEmptyContext())
+            raise(TypeMismatch(expr, expected, leftType.retType))
           }
           Unit
         }
@@ -235,7 +236,7 @@ private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, 
     val hasInl = match.cases.any { it.pattern is Pattern.Inl || it.pattern is Pattern.Variable }
     val hasInr = match.cases.any { it.pattern is Pattern.Inr || it.pattern is Pattern.Variable }
     if (!hasInl || !hasInr) {
-      raise(NonExhaustivePatternMatching(match).withEmptyContext())
+      raise(NonExhaustivePatternMatching(match))
     }
   }
 }
@@ -249,7 +250,7 @@ private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
   expr: Expr,
 ) {
   if (actualType != expected) {
-    raise(TypeMismatch(expr, expected, actualType).withEmptyContext())
+    raise(TypeMismatch(expr, expected, actualType))
   }
 }
 
@@ -264,13 +265,13 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           Nat
         }
 
-      is Var -> binding { env[expr.name] ?: raise(UndefinedVariable(expr).withEmptyContext()) }
+      is Var -> binding { env[expr.name] ?: raise(UndefinedVariable(expr)) }
 
       is Application ->
         binding {
           val funcType = inferExprType(expr.func, env).bind()
           if (funcType !is FunType) {
-            raise(ApplicantNotOfFunctionType(expr).withEmptyContext())
+            raise(ApplicantNotOfFunctionType(expr))
           }
           checkType(expr.args.single(), env, funcType.inputTypes.single()).bind()
 
@@ -399,6 +400,10 @@ fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError
   }
 
 fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeError> = binding {
+  val hasMain = program.declarations.any { it is FunctionDeclaration && it.name == "main" }
+  if (!hasMain) {
+    raise(MissingMain(program))
+  }
   var currentEnv = env
   for (declaration in program.declarations) {
     val inferredType = inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
