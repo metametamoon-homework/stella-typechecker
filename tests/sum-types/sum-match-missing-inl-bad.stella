@@ -1,0 +1,19 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_NONEXHAUSTIVE_MATCH_PATTERNS",
+    "location": "16:10"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(x : Nat + Bool) -> Nat {
+  return match x {
+      inr(b) => 0
+  }
+}

@@ -44,7 +44,7 @@ class TypeCheckerTest {
 
   private fun typeCheckTest(sourceFile: File) {
     val sourceText = sourceFile.readText()
-    println("Performing analysis of ${sourceFile.toURI()}")
+    println("Performing analysis of ${sourceFile.toURI()}\n")
     val textSpec =
       sourceFile
         .readLines()

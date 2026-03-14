@@ -2,7 +2,6 @@ package type.error
 
 import ast.Expr
 import ast.Node
-import ast.Type
 import ast.Var
 
 data class TypeMismatch(
@@ -49,4 +48,8 @@ data class AmbiguousSumType(override val errorNode: Expr) : TypeError {
 
 data class NotASumType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
+}
+
+data class NonExhaustivePatternMatching(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_NONEXHAUSTIVE_MATCH_PATTERNS"
 }

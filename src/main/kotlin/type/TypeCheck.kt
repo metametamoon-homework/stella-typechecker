@@ -37,6 +37,7 @@ import com.github.michaelbull.result.mapError
 import type.error.AmbiguousSumType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
+import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
 import type.error.NotARecord
 import type.error.NotASumType
@@ -215,6 +216,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is Match ->
         binding {
           val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+          checkExhaustiveness(expr, scrutineeType)
           for (case in expr.cases) {
             val patEnv = matchPatternWithType(case.pattern, scrutineeType).bind()
             checkType(case.expr, env + patEnv, expected).bind()
@@ -226,6 +228,16 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is Pattern.Inr -> error("unreachable")
     }
   return result.wrapWhileTypechecking(expr, expected)
+}
+
+private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, type: Type) {
+  if (type is SumType) {
+    val hasInl = match.cases.any { it.pattern is Pattern.Inl || it.pattern is Pattern.Variable }
+    val hasInr = match.cases.any { it.pattern is Pattern.Inr || it.pattern is Pattern.Variable }
+    if (!hasInl || !hasInr) {
+      raise(NonExhaustivePatternMatching(match).withEmptyContext())
+    }
+  }
 }
 
 private fun BindingScope<ContextualTypeError>.raise(e: TypeError): Nothing =
@@ -349,6 +361,7 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
       is Match ->
         binding {
           val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+          checkExhaustiveness(expr, scrutineeType)
           val firstCase = expr.cases.firstOrNull() ?: error("empty match")
           val firstPatEnv = matchPatternWithType(firstCase.pattern, scrutineeType).bind()
           val resultType = inferExprType(firstCase.expr, env + firstPatEnv).bind()
