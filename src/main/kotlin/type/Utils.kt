@@ -10,4 +10,5 @@ fun ast.Type.toType(): Type =
     is ast.Type.Tuple -> TupleType(this.projections.map { it.toType() })
     is ast.Type.Record -> RecordType(this.projections.mapValues { (_, v) -> v.toType() })
     is ast.Type.Sum -> SumType(left = this.left.toType(), right = this.right.toType())
+    is ast.Type.ListType -> ListType(elementType = this.elementType.toType())
   }

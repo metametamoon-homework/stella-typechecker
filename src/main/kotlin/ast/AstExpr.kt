@@ -55,6 +55,16 @@ data class Inl(val expr: Expr, override val position: Position?) : Expr
 
 data class Inr(val expr: Expr, override val position: Position?) : Expr
 
+data class ListLiteral(val elements: List<Expr>, override val position: Position?) : Expr
+
+data class ConsList(val head: Expr, val tail: Expr, override val position: Position?) : Expr
+
+data class ListHead(val list: Expr, override val position: Position?) : Expr
+
+data class ListTail(val list: Expr, override val position: Position?) : Expr
+
+data class ListIsEmpty(val list: Expr, override val position: Position?) : Expr
+
 data class MatchCase(val pattern: Pattern, val expr: Expr)
 
 data class Match(

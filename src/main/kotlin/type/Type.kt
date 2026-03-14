@@ -1,20 +1,49 @@
 package type
 
-sealed interface Type
+sealed interface Type {
+  fun prettyPrint(): String
+}
 
-data object Unit : Type
+data object Unit : Type {
+  override fun prettyPrint(): String = "Unit"
+}
 
-data object Nat : Type
+data object Nat : Type {
+  override fun prettyPrint(): String = "Nat"
+}
 
-data object Bool : Type
+data object Bool : Type {
+  override fun prettyPrint(): String = "Bool"
+}
 
-data class FunType(val inputTypes: List<Type>, val retType: Type) : Type
+data class FunType(val inputTypes: List<Type>, val retType: Type) : Type {
+  override fun prettyPrint(): String {
+    val params = inputTypes.joinToString(", ") { it.prettyPrint() }
+    return "fn($params) -> ${retType.prettyPrint()}"
+  }
+}
 
-data class TupleType(val projections: List<Type>) : Type
+data class TupleType(val projections: List<Type>) : Type {
+  override fun prettyPrint(): String {
+    val elements = projections.joinToString(", ") { it.prettyPrint() }
+    return "{$elements}"
+  }
+}
 
-data class RecordType(val fields: Map<String, Type>) : Type
+data class RecordType(val fields: Map<String, Type>) : Type {
+  override fun prettyPrint(): String {
+    val entries = fields.entries.joinToString(", ") { (k, v) -> "$k : ${v.prettyPrint()}" }
+    return "{$entries}"
+  }
+}
 
-data class SumType(val left: Type, val right: Type) : Type
+data class SumType(val left: Type, val right: Type) : Type {
+  override fun prettyPrint(): String = "${left.prettyPrint()} + ${right.prettyPrint()}"
+}
+
+data class ListType(val elementType: Type) : Type {
+  override fun prettyPrint(): String = "[${elementType.prettyPrint()}]"
+}
 
 typealias Env = Map<String, Type>
 

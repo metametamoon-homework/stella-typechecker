@@ -52,6 +52,8 @@ sealed interface Type : Node {
     Type
 
   data class Sum(val left: Type, val right: Type, override val position: Position? = null) : Type
+
+  data class ListType(val elementType: Type, override val position: Position? = null) : Type
 }
 
 data class FunctionDeclaration(

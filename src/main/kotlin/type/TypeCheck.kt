@@ -3,6 +3,7 @@ package type
 import ast.Abstraction
 import ast.Application
 import ast.Binding
+import ast.ConsList
 import ast.Declaration
 import ast.Expr
 import ast.FalseLiteral
@@ -14,6 +15,10 @@ import ast.Inr
 import ast.IntLiteral
 import ast.IsZero
 import ast.LetBinding
+import ast.ListHead
+import ast.ListIsEmpty
+import ast.ListLiteral
+import ast.ListTail
 import ast.Match
 import ast.NatRec
 import ast.Node
@@ -34,12 +39,14 @@ import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
+import type.error.AmbiguousList
 import type.error.AmbiguousSumType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
 import type.error.MissingMain
 import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
+import type.error.NotAList
 import type.error.NotARecord
 import type.error.NotASumType
 import type.error.NotATuple
@@ -48,6 +55,7 @@ import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
+import type.error.UnexpectedList
 import type.error.UnexpectedRecordField
 import type.error.withContextLayer
 import type.error.withEmptyContext
@@ -214,6 +222,38 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           if (expected !is SumType) raise(TypeMismatch(expr, expected, SumType(Unit, Unit)))
           checkType(expr.expr, env, expected.right).bind()
         }
+      is ListLiteral ->
+        binding {
+          if (expected !is ListType) raise(UnexpectedList(expr))
+          for (element in expr.elements) {
+            checkType(element, env, expected.elementType).bind()
+          }
+          Unit
+        }
+      is ConsList ->
+        binding {
+          if (expected !is ListType) raise(UnexpectedList(expr))
+          checkType(expr.head, env, expected.elementType).bind()
+          checkType(expr.tail, env, expected).bind()
+        }
+      is ListHead ->
+        binding {
+          val actualType = inferExprType(expr, env).bind()
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
+      is ListTail ->
+        binding {
+          val actualType = inferExprType(expr, env).bind()
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
+      is ListIsEmpty ->
+        binding {
+          val actualType = inferExprType(expr, env).bind()
+          assertExpectedTypeOrReport(actualType, expected, expr)
+          Unit
+        }
       is Match ->
         binding {
           val scrutineeType = inferExprType(expr.scrutinee, env).bind()
@@ -357,6 +397,40 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           inferExprType(expr.body, updatedEnv).bind()
         }
       is Pattern.Variable -> error("unreachable")
+      is ListLiteral ->
+        binding {
+          if (expr.elements.isEmpty()) raise(AmbiguousList(expr))
+          val firstType = inferExprType(expr.elements.first(), env).bind()
+          for (element in expr.elements.drop(1)) {
+            checkType(element, env, firstType).bind()
+          }
+          ListType(firstType)
+        }
+      is ConsList ->
+        binding {
+          val headType = inferExprType(expr.head, env).bind()
+          val tailExpected = ListType(headType)
+          checkType(expr.tail, env, tailExpected).bind()
+          tailExpected
+        }
+      is ListHead ->
+        binding {
+          val listType = inferExprType(expr.list, env).bind()
+          if (listType !is ListType) raise(NotAList(expr.list))
+          listType.elementType
+        }
+      is ListTail ->
+        binding {
+          val listType = inferExprType(expr.list, env).bind()
+          if (listType !is ListType) raise(NotAList(expr.list))
+          listType
+        }
+      is ListIsEmpty ->
+        binding {
+          val listType = inferExprType(expr.list, env).bind()
+          if (listType !is ListType) raise(NotAList(expr.list))
+          Bool
+        }
       is Inl -> Err(AmbiguousSumType(expr).withEmptyContext())
       is Inr -> Err(AmbiguousSumType(expr).withEmptyContext())
       is Match ->

@@ -89,6 +89,14 @@ fun StellaParser.ExprContext.toAst(): Expr =
       )
     is StellaParser.InlContext -> Inl(expr = this.expr_!!.toAst(), position = toPosition())
     is StellaParser.InrContext -> Inr(expr = this.expr_!!.toAst(), position = toPosition())
+    is StellaParser.ListContext ->
+      ListLiteral(elements = this.exprs.map { it.toAst() }, position = toPosition())
+    is StellaParser.ConsListContext ->
+      ConsList(head = this.head!!.toAst(), tail = this.tail!!.toAst(), position = toPosition())
+    is StellaParser.HeadContext -> ListHead(list = this.list!!.toAst(), position = toPosition())
+    is StellaParser.TailContext -> ListTail(list = this.list!!.toAst(), position = toPosition())
+    is StellaParser.IsEmptyContext ->
+      ListIsEmpty(list = this.list!!.toAst(), position = toPosition())
     is StellaParser.MatchContext ->
       Match(
         scrutinee = this.expr_!!.toAst(),
@@ -131,6 +139,8 @@ fun StellaParser.StellatypeContext.toAst(): Type =
       Type.Record(this.fieldTypes.associate { it.label?.text!! to it.type_!!.toAst() })
     is StellaParser.TypeSumContext ->
       Type.Sum(left = this.left!!.toAst(), right = this.right!!.toAst(), position = toPosition())
+    is StellaParser.TypeListContext ->
+      Type.ListType(elementType = this.type_!!.toAst(), position = toPosition())
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

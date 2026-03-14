@@ -11,7 +11,8 @@ data class TypeMismatch(
 ) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
   override val userFacingErrorDescription: String
-    get() = "Expected type\n\t$expectedType\nwith actual type\n\t$actualType"
+    get() =
+      "Expected type\n\t${expectedType.prettyPrint()}\nwith actual type\n\t${actualType.prettyPrint()}"
 }
 
 data class UndefinedVariable(override val errorNode: Var) : TypeError {
@@ -36,7 +37,8 @@ data class NotARecord(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_RECORD"
 }
 
-data class UnexpectedRecordField(override val errorNode: Expr, val label: String) : TypeError {
+data class UnexpectedRecordField(override val errorNode: Expr, private val label: String) :
+  TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_RECORD_FIELD"
   override val userFacingErrorDescription: String
     get() = "record does not have field '$label'"
@@ -56,4 +58,16 @@ data class NonExhaustivePatternMatching(override val errorNode: Expr) : TypeErro
 
 data class MissingMain(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_MISSING_MAIN"
+}
+
+data class NotAList(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_NOT_A_LIST"
+}
+
+data class UnexpectedList(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_LIST"
+}
+
+data class AmbiguousList(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_LIST"
 }
