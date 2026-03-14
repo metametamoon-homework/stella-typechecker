@@ -33,6 +33,7 @@ import ast.TupleLiteral
 import ast.TypeAscription
 import ast.UnitConstant
 import ast.Var
+import ast.VariantLiteral
 import com.github.michaelbull.result.BindingScope
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
@@ -41,6 +42,7 @@ import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
 import type.error.AmbiguousList
 import type.error.AmbiguousSumType
+import type.error.AmbiguousVariantType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
 import type.error.MissingMain
@@ -50,6 +52,7 @@ import type.error.NotAList
 import type.error.NotARecord
 import type.error.NotASumType
 import type.error.NotATuple
+import type.error.NotAVariantType
 import type.error.TupleIndexOutOfBound
 import type.error.TypeError
 import type.error.TypeErrorFrame
@@ -57,9 +60,9 @@ import type.error.TypeMismatch
 import type.error.UndefinedVariable
 import type.error.UnexpectedList
 import type.error.UnexpectedRecordField
+import type.error.UnexpectedVariantLabel
 import type.error.withContextLayer
 import type.error.withEmptyContext
-import utils.raise
 
 fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTypeError> =
   when (pattern) {
@@ -73,6 +76,17 @@ fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTy
       binding {
         if (type !is SumType) raise(NotASumType(pattern))
         matchPatternWithType(pattern.inner, type.right).bind()
+      }
+    is Pattern.Variant ->
+      binding {
+        if (type !is VariantType) raise(NotAVariantType(pattern))
+        if (pattern.label !in type.fields) raise(UnexpectedVariantLabel(pattern, pattern.label))
+        val fieldType = type.fields[pattern.label]
+        if (pattern.inner != null && fieldType != null) {
+          matchPatternWithType(pattern.inner, fieldType).bind()
+        } else {
+          emptyMap()
+        }
       }
   }
 
@@ -264,18 +278,35 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           }
           Unit
         }
+      is VariantLiteral ->
+        binding {
+          if (expected !is VariantType) raise(NotAVariantType(expr))
+          if (expr.label !in expected.fields) raise(UnexpectedVariantLabel(expr, expr.label))
+          val fieldType = expected.fields.getValue(expr.label)
+          checkType(expr.expr, env, fieldType).bind()
+          Unit
+        }
       is Pattern.Variable -> error("unreachable")
       is Pattern.Inl -> error("unreachable")
       is Pattern.Inr -> error("unreachable")
+      is Pattern.Variant -> error("unreachable")
     }
   return result.wrapWhileTypechecking(expr, expected)
 }
 
 private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, type: Type) {
+  val hasWildcard = match.cases.any { it.pattern is Pattern.Variable }
+  if (hasWildcard) return
   if (type is SumType) {
-    val hasInl = match.cases.any { it.pattern is Pattern.Inl || it.pattern is Pattern.Variable }
-    val hasInr = match.cases.any { it.pattern is Pattern.Inr || it.pattern is Pattern.Variable }
-    if (!hasInl || !hasInr) {
+    val isExhaustive =
+      match.cases.any { it.pattern is Pattern.Inr } && match.cases.any { it.pattern is Pattern.Inl }
+    if (!isExhaustive) {
+      raise(NonExhaustivePatternMatching(match))
+    }
+  }
+  if (type is VariantType) {
+    val coveredLabels = match.cases.mapNotNull { (it.pattern as? Pattern.Variant)?.label }.toSet()
+    if (!coveredLabels.containsAll(type.fields.keys)) {
       raise(NonExhaustivePatternMatching(match))
     }
   }
@@ -446,8 +477,10 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           }
           resultType
         }
+      is VariantLiteral -> Err(AmbiguousVariantType(expr).withEmptyContext())
       is Pattern.Inl -> error("unreachable")
       is Pattern.Inr -> error("unreachable")
+      is Pattern.Variant -> error("unreachable")
     }
   return result.wrapWhileInferring(expr)
 }

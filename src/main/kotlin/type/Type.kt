@@ -45,6 +45,14 @@ data class ListType(val elementType: Type) : Type {
   override fun prettyPrint(): String = "[${elementType.prettyPrint()}]"
 }
 
+data class VariantType(val fields: Map<String, Type>) : Type {
+  override fun prettyPrint(): String {
+    val entries =
+      fields.entries.joinToString(", ") { (label, type) -> "$label : ${type.prettyPrint()}" }
+    return "<| $entries |>"
+  }
+}
+
 typealias Env = Map<String, Type>
 
 val emptyEnv: Env = emptyMap()

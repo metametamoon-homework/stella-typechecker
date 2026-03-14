@@ -73,12 +73,18 @@ data class Match(
   override val position: Position?,
 ) : Expr
 
+data class VariantLiteral(val label: String, val expr: Expr, override val position: Position?) :
+  Expr
+
 sealed interface Pattern : Expr {
   data class Variable(val name: String, override val position: Position?) : Pattern
 
   data class Inl(val inner: Pattern, override val position: Position?) : Pattern
 
   data class Inr(val inner: Pattern, override val position: Position?) : Pattern
+
+  data class Variant(val label: String, val inner: Pattern?, override val position: Position?) :
+    Pattern
 }
 
 data class Binding(val pattern: Pattern, val expr: Expr)

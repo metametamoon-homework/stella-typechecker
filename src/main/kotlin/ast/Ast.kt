@@ -54,6 +54,11 @@ sealed interface Type : Node {
   data class Sum(val left: Type, val right: Type, override val position: Position? = null) : Type
 
   data class ListType(val elementType: Type, override val position: Position? = null) : Type
+
+  data class VariantFieldType(val label: String, val type: Type)
+
+  data class Variant(val fields: List<VariantFieldType>, override val position: Position? = null) :
+    Type
 }
 
 data class FunctionDeclaration(

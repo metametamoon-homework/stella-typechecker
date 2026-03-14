@@ -103,6 +103,12 @@ fun StellaParser.ExprContext.toAst(): Expr =
         cases = this.cases.map { it.toAst() },
         position = toPosition(),
       )
+    is StellaParser.VariantContext ->
+      VariantLiteral(
+        label = this.label!!.text!!,
+        expr = this.rhs!!.toAst(),
+        position = toPosition(),
+      )
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -120,6 +126,12 @@ fun StellaParser.PatternContext.toAst(): Pattern =
       Pattern.Inl(inner = this.pattern_!!.toAst(), position = toPosition())
     is StellaParser.PatternInrContext ->
       Pattern.Inr(inner = this.pattern_!!.toAst(), position = toPosition())
+    is StellaParser.PatternVariantContext ->
+      Pattern.Variant(
+        label = this.label?.text ?: "<unknown>",
+        inner = this.pattern_?.toAst(),
+        position = toPosition(),
+      )
     else -> error("Unsupported pattern: ${this::class.simpleName}")
   }
 
@@ -141,6 +153,14 @@ fun StellaParser.StellatypeContext.toAst(): Type =
       Type.Sum(left = this.left!!.toAst(), right = this.right!!.toAst(), position = toPosition())
     is StellaParser.TypeListContext ->
       Type.ListType(elementType = this.type_!!.toAst(), position = toPosition())
+    is StellaParser.TypeVariantContext ->
+      Type.Variant(
+        fields =
+          this.fieldTypes.map {
+            Type.VariantFieldType(label = it.label?.text!!, type = it.type_!!.toAst())
+          },
+        position = toPosition(),
+      )
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

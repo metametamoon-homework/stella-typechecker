@@ -11,4 +11,6 @@ fun ast.Type.toType(): Type =
     is ast.Type.Record -> RecordType(this.projections.mapValues { (_, v) -> v.toType() })
     is ast.Type.Sum -> SumType(left = this.left.toType(), right = this.right.toType())
     is ast.Type.ListType -> ListType(elementType = this.elementType.toType())
+    is ast.Type.Variant ->
+      VariantType(fields = this.fields.associate { it.label to it.type.toType() })
   }

@@ -71,3 +71,18 @@ data class UnexpectedList(override val errorNode: Expr) : TypeError {
 data class AmbiguousList(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_LIST"
 }
+
+data class UnexpectedVariantLabel(override val errorNode: Expr, private val label: String) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_VARIANT_LABEL"
+  override val userFacingErrorDescription: String
+    get() = "variant type does not have label '$label'"
+}
+
+data class NotAVariantType(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
+}
+
+data class AmbiguousVariantType(override val errorNode: Expr) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_VARIANT_TYPE"
+}
