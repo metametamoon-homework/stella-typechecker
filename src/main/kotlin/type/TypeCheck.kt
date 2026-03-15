@@ -60,6 +60,8 @@ import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
+import type.error.UnexpectedLambda
+import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
 import type.error.UnexpectedRecordField
 import type.error.UnexpectedVariantLabel
@@ -158,6 +160,13 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
 
       is Abstraction ->
         binding {
+          if (expected !is FunType) {
+            raise(UnexpectedLambda(expr))
+          }
+          val inputType = expected.inputTypes.single()
+          if (inputType != expr.params.single().type.toType()) {
+            raise(UnexpectedLambdaParameterType(expr.params.single(), inputType))
+          }
           val abstractionType = inferExprType(expr, env).bind()
           assertExpectedTypeOrReport(abstractionType, expected, expr)
           Unit

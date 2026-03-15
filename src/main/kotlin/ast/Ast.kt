@@ -11,11 +11,8 @@ sealed interface Node {
 data class Program(val declarations: List<Declaration>, override val position: Position? = null) :
   Node
 
-data class ParamDeclaration(
-  val name: String,
-  val type: Type,
-  override val position: Position? = null,
-) : Node
+data class ParamDeclaration(val name: String, val type: Type, override val position: Position?) :
+  Node
 
 sealed interface Declaration : Node
 

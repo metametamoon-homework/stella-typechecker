@@ -1,8 +1,10 @@
 package type.error
 
+import ast.Abstraction
 import ast.Expr
 import ast.Node
 import ast.Var
+import type.Type
 
 data class TypeMismatch(
   override val errorNode: Node,
@@ -85,4 +87,13 @@ data class NotAVariantType(override val errorNode: Expr) : TypeError {
 
 data class AmbiguousVariantType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_VARIANT_TYPE"
+}
+
+data class UnexpectedLambda(override val errorNode: Abstraction) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_LAMBDA"
+}
+
+data class UnexpectedLambdaParameterType(override val errorNode: Node, val expectedType: Type) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
 }
