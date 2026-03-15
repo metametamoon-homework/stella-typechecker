@@ -63,7 +63,8 @@ sealed interface Type : Node {
 data class FunctionDeclaration(
   val name: String,
   val parameterDeclarations: List<ParamDeclaration>,
-  val returnType: Type?,
+  val returnType: Type,
+  val localDeclarations: List<Declaration> = emptyList(),
   val returnExpr: Expr,
   override val position: Position? = null,
 ) : Declaration

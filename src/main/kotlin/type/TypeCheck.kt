@@ -595,25 +595,34 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
   return result.wrapWhileInferring(expr)
 }
 
+private fun BindingScope<ContextualTypeError>.resolveLocalDeclarations(
+  localDecls: List<Declaration>,
+  env: Env,
+): Env {
+  if (localDecls.isEmpty()) return env
+  val signatures =
+    localDecls.filterIsInstance<FunctionDeclaration>().associate { decl ->
+      decl.name to
+        FunType(decl.parameterDeclarations.map { it.type.toType() }, decl.returnType.toType())
+    }
+  val envWithSignatures = env + signatures
+  for (decl in localDecls.filterIsInstance<FunctionDeclaration>()) {
+    inferDeclType(decl, envWithSignatures).bind()
+  }
+  return envWithSignatures
+}
+
 fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError> =
   when (decl) {
     is FunctionDeclaration ->
       binding {
-        // we only check for record types problems within types specified in a function declaration
-        // technically, there might be types specified elsewhere, but we currently do not consider
-        // it
         decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
-        if (decl.returnType != null) checkTypeDuplicates(decl.returnType)
+        checkTypeDuplicates(decl.returnType)
         val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
         val updatedEnv = env + paramEnv
-        val specifiedReturnType = decl.returnType?.toType()
-        val returnType =
-          if (specifiedReturnType != null) {
-            checkType(decl.returnExpr, updatedEnv, specifiedReturnType).bind()
-            specifiedReturnType
-          } else {
-            inferExprType(decl.returnExpr, updatedEnv).wrapWhileInferring(decl).bind()
-          }
+        val envWithLocals = resolveLocalDeclarations(decl.localDeclarations, updatedEnv)
+        val returnType = decl.returnType.toType()
+        checkType(decl.returnExpr, envWithLocals, returnType).bind()
         val inputParams = decl.parameterDeclarations.map { it.type.toType() }
         FunType(inputParams, returnType)
       }
@@ -632,12 +641,18 @@ fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeErr
       raise(DuplicateFunctionDeclaration(decl, decl.name))
     }
   }
-  var currentEnv = env
-  for (declaration in program.declarations) {
-    val inferredType = inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
-    if (declaration is FunctionDeclaration) {
-      currentEnv = currentEnv + (declaration.name to inferredType)
+  val deltaEnv =
+    program.declarations.filterIsInstance<FunctionDeclaration>().map {
+      val type =
+        FunType(
+          it.parameterDeclarations.map { param -> param.type.toType() },
+          it.returnType.toType(),
+        )
+      it.name to type
     }
+  val currentEnv = env + deltaEnv
+  for (declaration in program.declarations) {
+    inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
   }
   type.Unit
 }

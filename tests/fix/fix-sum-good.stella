@@ -9,12 +9,10 @@ TEST_END
 
 language core;
 
-fn sum(f : fn(Nat) -> Nat) {
+fn sum(f : fn(Nat) -> Nat) -> fn(Nat) -> Nat {
   return fn (x : Nat) { return if Nat::iszero(x) then 0 else succ(f(Nat::pred(x))) }
 }
 
 fn main(n : Nat) -> Nat {
-  return fix(fn (f : fn(Nat) -> Nat) {
-    return fn (x : Nat) { return x }
-  })(n)
+  return fix(sum)(n)
 }

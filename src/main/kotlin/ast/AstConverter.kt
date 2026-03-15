@@ -23,8 +23,8 @@ fun StellaParser.DeclContext.toAst(): Declaration =
       FunctionDeclaration(
         name = this.name?.text ?: "<unknown>",
         parameterDeclarations = this.paramDecls.map { it.toAst() },
-        returnType = this.returnType?.toAst(),
-        //        localDeclarations = this.localDecls.map { it.toAst() },
+        returnType = this.returnType!!.toAst(),
+        localDeclarations = this.localDecls.map { it.toAst() },
         returnExpr = this.returnExpr!!.toAst(),
         position = toPosition(),
       )
