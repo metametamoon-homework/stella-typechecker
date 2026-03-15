@@ -7,6 +7,7 @@ import ast.ConsList
 import ast.Declaration
 import ast.Expr
 import ast.FalseLiteral
+import ast.Fix
 import ast.FunDeclaration
 import ast.FunctionDeclaration
 import ast.IfExpression
@@ -23,6 +24,7 @@ import ast.Match
 import ast.NatRec
 import ast.Node
 import ast.Pattern
+import ast.Pred
 import ast.Program
 import ast.RecordDotExpression
 import ast.RecordLiteral
@@ -143,6 +145,13 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is IsZero ->
         binding {
           assertExpectedTypeOrReport(Bool, expected, expr)
+          checkType(expr.arg, env, Nat).bind()
+          Unit
+        }
+
+      is Pred ->
+        binding {
+          assertExpectedTypeOrReport(Nat, expected, expr)
           checkType(expr.arg, env, Nat).bind()
           Unit
         }
@@ -286,6 +295,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           checkType(expr.expr, env, fieldType).bind()
           Unit
         }
+      is Fix -> binding { checkType(expr.expr, env, FunType(listOf(expected), expected)).bind() }
       is Pattern.Variable -> error("unreachable")
       is Pattern.Inl -> error("unreachable")
       is Pattern.Inr -> error("unreachable")
@@ -364,6 +374,12 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
         binding {
           checkType(expr.arg, env, Nat).bind()
           Bool
+        }
+
+      is Pred ->
+        binding {
+          checkType(expr.arg, env, Nat).bind()
+          Nat
         }
 
       is NatRec ->
@@ -478,6 +494,18 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           resultType
         }
       is VariantLiteral -> Err(AmbiguousVariantType(expr).withEmptyContext())
+      is Fix ->
+        binding {
+          val fixArg = expr.expr
+          val innerType = inferExprType(fixArg, env).bind()
+          if (innerType !is FunType) raise(NotAFunction(fixArg))
+          if (innerType.inputTypes.size != 1) raise(NotAFunction(fixArg)) // close enough
+          val inputType = innerType.inputTypes.single()
+          if (inputType != innerType.retType) {
+            raise(TypeMismatch(fixArg, FunType(listOf(inputType), inputType), innerType))
+          }
+          innerType.retType
+        }
       is Pattern.Inl -> error("unreachable")
       is Pattern.Inr -> error("unreachable")
       is Pattern.Variant -> error("unreachable")

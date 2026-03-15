@@ -6,6 +6,8 @@ data class Succ(val expr: Expr, override val position: Position?) : Expr
 
 data class IsZero(val arg: Expr, override val position: Position?) : Expr
 
+data class Pred(val arg: Expr, override val position: Position?) : Expr
+
 data class Var(val name: String, override val position: Position?) : Expr
 
 data class IntLiteral(val value: Int, override val position: Position?) : Expr
@@ -64,6 +66,8 @@ data class ListHead(val list: Expr, override val position: Position?) : Expr
 data class ListTail(val list: Expr, override val position: Position?) : Expr
 
 data class ListIsEmpty(val list: Expr, override val position: Position?) : Expr
+
+data class Fix(val expr: Expr, override val position: Position?) : Expr
 
 data class MatchCase(val pattern: Pattern, val expr: Expr)
 
