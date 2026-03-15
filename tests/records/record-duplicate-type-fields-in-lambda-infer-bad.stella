@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_DUPLICATE_RECORD_TYPE_FIELDS",
+    "location": null
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(n : Nat) -> Nat {
+  return (fn(r : {a : Nat, a : Nat}) { return 0 })(n)
+}

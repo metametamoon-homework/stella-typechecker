@@ -4,6 +4,7 @@ import ast.Abstraction
 import ast.Expr
 import ast.Node
 import ast.Var
+import type.RecordType
 import type.Type
 
 data class TypeMismatch(
@@ -44,6 +45,52 @@ data class UnexpectedRecordField(override val errorNode: Expr, private val label
   override val errorId: String = "ERROR_UNEXPECTED_RECORD_FIELD"
   override val userFacingErrorDescription: String
     get() = "record does not have field '$label'"
+}
+
+data class UnexpectedFieldAccess(
+  override val errorNode: Expr,
+  private val type: RecordType,
+  private val label: String,
+) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_FIELD_ACCESS"
+  override val userFacingErrorDescription: String
+    get() = "unexpected field access '$label' from a value of record type ${type.prettyPrint()}"
+}
+
+data class MissingRecordFields(
+  override val errorNode: Expr,
+  private val missingFields: Set<String>,
+) : TypeError {
+  override val errorId: String = "ERROR_MISSING_RECORD_FIELDS"
+  override val userFacingErrorDescription: String
+    get() = "missing record fields: ${missingFields.sorted().joinToString(", ")}"
+}
+
+data class UnexpectedRecordFields(
+  override val errorNode: Expr,
+  private val unexpectedFields: Set<String>,
+) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_RECORD_FIELDS"
+  override val userFacingErrorDescription: String
+    get() = "unexpected record fields: ${unexpectedFields.sorted().joinToString(", ")}"
+}
+
+data class DuplicateRecordFields(
+  override val errorNode: Expr,
+  private val duplicateFields: Set<String>,
+) : TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_RECORD_FIELDS"
+  override val userFacingErrorDescription: String
+    get() = "duplicate record fields: ${duplicateFields.sorted().joinToString(", ")}"
+}
+
+data class DuplicateRecordTypeFields(
+  override val errorNode: Node,
+  private val duplicateFields: Set<String>,
+) : TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_RECORD_TYPE_FIELDS"
+  override val userFacingErrorDescription: String
+    get() = "duplicate record type fields: ${duplicateFields.sorted().joinToString(", ")}"
 }
 
 data class AmbiguousSumType(override val errorNode: Expr) : TypeError {

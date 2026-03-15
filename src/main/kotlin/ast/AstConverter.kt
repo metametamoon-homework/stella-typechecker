@@ -73,7 +73,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.DotTupleContext ->
       TupleDotExpression(this.expr_!!.toAst(), this.index?.text!!.toInt(), toPosition())
     is StellaParser.RecordContext ->
-      RecordLiteral(this.bindings.associate { it.name?.text!! to it.rhs!!.toAst() }, toPosition())
+      RecordLiteral(this.bindings.map { it.name?.text!! to it.rhs!!.toAst() }, toPosition())
     is StellaParser.DotRecordContext ->
       RecordDotExpression(this.expr_!!.toAst(), this.label?.text!!, toPosition())
     is StellaParser.TypeAscContext ->
@@ -111,6 +111,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
         position = toPosition(),
       )
     is StellaParser.FixContext -> Fix(expr = this.expr_!!.toAst(), position = toPosition())
+    is StellaParser.ParenthesisedExprContext -> this.expr_!!.toAst()
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -150,7 +151,7 @@ fun StellaParser.StellatypeContext.toAst(): Type =
     is StellaParser.TypeUnitContext -> Type.Unit
     is StellaParser.TypeTupleContext -> Type.Tuple(this.types.map { it.toAst() })
     is StellaParser.TypeRecordContext ->
-      Type.Record(this.fieldTypes.associate { it.label?.text!! to it.type_!!.toAst() })
+      Type.Record(this.fieldTypes.map { it.label?.text!! to it.type_!!.toAst() })
     is StellaParser.TypeSumContext ->
       Type.Sum(left = this.left!!.toAst(), right = this.right!!.toAst(), position = toPosition())
     is StellaParser.TypeListContext ->

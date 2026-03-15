@@ -3,7 +3,7 @@ TEST_BEGIN
 {
   "type": "stop-on-first-error",
   "expected-error": {
-    "code": "ERROR_UNEXPECTED_FIELD_ACCESS",
+    "code": "ERROR_DUPLICATE_RECORD_FIELDS",
     "location": "16:10"
   }
 }
@@ -12,6 +12,6 @@ TEST_END
 
 language core;
 
-fn main(n : { a : Nat }) -> Nat {
-  return n.b
+fn main(n : Nat) -> {a : Nat} {
+  return {a = n, a = n}
 }

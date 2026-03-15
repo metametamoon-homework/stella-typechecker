@@ -47,7 +47,10 @@ import type.error.AmbiguousSumType
 import type.error.AmbiguousVariantType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
+import type.error.DuplicateRecordFields
+import type.error.DuplicateRecordTypeFields
 import type.error.MissingMain
+import type.error.MissingRecordFields
 import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
 import type.error.NotAList
@@ -60,12 +63,14 @@ import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
+import type.error.UnexpectedFieldAccess
 import type.error.UnexpectedInjection
 import type.error.UnexpectedLambda
 import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordField
+import type.error.UnexpectedRecordFields
 import type.error.UnexpectedTuple
 import type.error.UnexpectedTupleLength
 import type.error.UnexpectedVariant
@@ -165,6 +170,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
 
       is Abstraction ->
         binding {
+          expr.params.forEach { checkRecordTypeDuplicates(it.type) }
           if (expected !is FunType) {
             raise(UnexpectedLambda(expr, expected))
           }
@@ -229,15 +235,28 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is RecordLiteral ->
         binding {
           if (expected !is RecordType) raise(UnexpectedRecord(expr, expected))
-          val fieldTypes = expr.bindings.mapValues { (_, v) -> inferType(v, env).bind() }
-          val actualType = RecordType(fieldTypes)
-          assertExpectedTypeOrReport(actualType, expected, expr)
+          val duplicates = findDuplicateKeys(expr.bindings)
+          if (duplicates.isNotEmpty()) raise(DuplicateRecordFields(expr, duplicates))
+          val bindingsMap = expr.bindings.toMap()
+          val expectedKeys = expected.fields.keys
+          val actualKeys = bindingsMap.keys
+          val missing = expectedKeys - actualKeys
+          val extra = actualKeys - expectedKeys
+          if (missing.isNotEmpty()) raise(MissingRecordFields(expr, missing))
+          if (extra.isNotEmpty()) raise(UnexpectedRecordFields(expr, extra))
+          for ((field, expectedFieldType) in expected.fields) {
+            checkType(bindingsMap.getValue(field), env, expectedFieldType).bind()
+          }
           Unit
         }
       is RecordDotExpression ->
         binding {
-          val actualType = inferExprType(expr, env).bind()
-          assertExpectedTypeOrReport(actualType, expected, expr)
+          val receiverType = inferType(expr.recordExpr, env).bind()
+          if (receiverType !is RecordType) raise(NotARecord(expr))
+          if (expr.label !in receiverType.fields)
+            raise(UnexpectedFieldAccess(expr, receiverType, expr.label))
+          val fieldType = receiverType.fields.getValue(expr.label)
+          assertExpectedTypeOrReport(fieldType, expected, expr)
           Unit
         }
 
@@ -354,7 +373,40 @@ private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
   }
 }
 
-// a gigantic when is going to be complex, but there is no work around it
+private fun <V> findDuplicateKeys(pairs: List<Pair<String, V>>): Set<String> {
+  val seen = mutableSetOf<String>()
+  val duplicates = mutableSetOf<String>()
+  for ((key, _) in pairs) {
+    if (!seen.add(key)) duplicates.add(key)
+  }
+  return duplicates
+}
+
+private fun BindingScope<ContextualTypeError>.checkRecordTypeDuplicates(type: ast.Type) {
+  when (type) {
+    is ast.Type.Record -> {
+      val duplicates = findDuplicateKeys(type.projections)
+      if (duplicates.isNotEmpty()) raise(DuplicateRecordTypeFields(type, duplicates))
+      type.projections.forEach { (_, t) -> checkRecordTypeDuplicates(t) }
+    }
+    is ast.Type.Fun -> {
+      type.inputTypes.forEach { checkRecordTypeDuplicates(it) }
+      checkRecordTypeDuplicates(type.returnType)
+    }
+    is ast.Type.Tuple -> type.projections.forEach { checkRecordTypeDuplicates(it) }
+    is ast.Type.Sum -> {
+      checkRecordTypeDuplicates(type.left)
+      checkRecordTypeDuplicates(type.right)
+    }
+    is ast.Type.ListType -> checkRecordTypeDuplicates(type.elementType)
+    is ast.Type.Variant -> type.fields.forEach { checkRecordTypeDuplicates(it.type) }
+    ast.Type.Bool,
+    ast.Type.Nat,
+    ast.Type.Unit -> {}
+  }
+}
+
+// a gigantic when is going to be complex
 @Suppress("CyclomaticComplexMethod", "LongMethod")
 fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
   val result: Result<Type, ContextualTypeError> =
@@ -413,6 +465,7 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
       is IntLiteral -> binding { Nat }
       is Abstraction ->
         binding {
+          expr.params.forEach { checkRecordTypeDuplicates(it.type) }
           val paramEnv = expr.params.associate { it.name to it.type.toType() }
           val updatedEnv = env + paramEnv
           val returnType = inferExprType(expr.returnExpr, updatedEnv).bind()
@@ -439,7 +492,9 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
         }
       is RecordLiteral ->
         binding {
-          val fieldTypes = expr.bindings.mapValues { (_, v) -> inferType(v, env).bind() }
+          val duplicates = findDuplicateKeys(expr.bindings)
+          if (duplicates.isNotEmpty()) raise(DuplicateRecordFields(expr, duplicates))
+          val fieldTypes = expr.bindings.toMap().mapValues { (_, v) -> inferType(v, env).bind() }
           RecordType(fieldTypes)
         }
       is RecordDotExpression ->
@@ -536,6 +591,11 @@ fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError
   when (decl) {
     is FunctionDeclaration ->
       binding {
+        // we only check for record types problems within types specified in a function declaration
+        // technically, there might be types specified elsewhere, but we currently do not consider
+        // it
+        decl.parameterDeclarations.forEach { checkRecordTypeDuplicates(it.type) }
+        if (decl.returnType != null) checkRecordTypeDuplicates(decl.returnType)
         val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
         val updatedEnv = env + paramEnv
         val specifiedReturnType = decl.returnType?.toType()
