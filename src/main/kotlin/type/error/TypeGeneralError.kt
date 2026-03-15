@@ -32,7 +32,7 @@ data class NotATuple(override val errorNode: Expr) : TypeError {
 }
 
 data class TupleIndexOutOfBound(override val errorNode: Expr) : TypeError {
-  override val errorId: String = "TUPLE_INDEX_OUT_OF_BOUND"
+  override val errorId: String = "ERROR_TUPLE_INDEX_OUT_OF_BOUNDS"
 }
 
 data class NotARecord(override val errorNode: Expr) : TypeError {
@@ -104,6 +104,16 @@ data class UnexpectedTuple(override val errorNode: Expr, private val expectedTyp
   override val errorId: String = "ERROR_UNEXPECTED_TUPLE"
   override val userFacingErrorDescription: String
     get() = "found a tuple where type ${expectedType.prettyPrint()} was expected"
+}
+
+data class UnexpectedTupleLength(
+  override val errorNode: Expr,
+  private val expectedLength: Int,
+  private val actualLength: Int,
+) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_TUPLE_LENGTH"
+  override val userFacingErrorDescription: String
+    get() = "expected a tuple of length $expectedLength, but got $actualLength"
 }
 
 data class UnexpectedRecord(override val errorNode: Expr, private val expectedType: Type) :

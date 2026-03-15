@@ -67,6 +67,7 @@ import type.error.UnexpectedList
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordField
 import type.error.UnexpectedTuple
+import type.error.UnexpectedTupleLength
 import type.error.UnexpectedVariant
 import type.error.UnexpectedVariantLabel
 import type.error.withContextLayer
@@ -211,6 +212,9 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is TupleLiteral ->
         binding {
           if (expected !is TupleType) raise(UnexpectedTuple(expr, expected))
+          if (expr.projections.size != expected.projections.size) {
+            raise(UnexpectedTupleLength(expr, expected.projections.size, expr.projections.size))
+          }
           val projectionTypes = expr.projections.map { inferType(it, env).bind() }
           val actualType = TupleType(projectionTypes)
           assertExpectedTypeOrReport(actualType, expected, expr)
