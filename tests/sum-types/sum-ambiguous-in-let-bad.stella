@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_AMBIGUOUS_SUM_TYPE",
+    "location": "16:18"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(n : Nat) -> Nat {
+  return let x = inl(n) in 0
+}

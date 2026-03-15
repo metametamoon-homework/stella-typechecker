@@ -47,17 +47,18 @@ import type.error.AmbiguousSumType
 import type.error.AmbiguousVariantType
 import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
+import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
+import type.error.DuplicateVariantTypeFields
+import type.error.IllegalEmptyMatching
 import type.error.MissingMain
 import type.error.MissingRecordFields
 import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
 import type.error.NotAList
 import type.error.NotARecord
-import type.error.NotASumType
 import type.error.NotATuple
-import type.error.NotAVariantType
 import type.error.TupleIndexOutOfBound
 import type.error.TypeError
 import type.error.TypeErrorFrame
@@ -68,6 +69,7 @@ import type.error.UnexpectedInjection
 import type.error.UnexpectedLambda
 import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
+import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordField
 import type.error.UnexpectedRecordFields
@@ -83,17 +85,17 @@ fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTy
     is Pattern.Variable -> Ok(mapOf(pattern.name to type))
     is Pattern.Inl ->
       binding {
-        if (type !is SumType) raise(NotASumType(pattern))
+        if (type !is SumType) raise(UnexpectedPatternForType(pattern, type))
         matchPatternWithType(pattern.inner, type.left).bind()
       }
     is Pattern.Inr ->
       binding {
-        if (type !is SumType) raise(NotASumType(pattern))
+        if (type !is SumType) raise(UnexpectedPatternForType(pattern, type))
         matchPatternWithType(pattern.inner, type.right).bind()
       }
     is Pattern.Variant ->
       binding {
-        if (type !is VariantType) raise(NotAVariantType(pattern))
+        if (type !is VariantType) raise(UnexpectedPatternForType(pattern, type))
         if (pattern.label !in type.fields) raise(UnexpectedVariantLabel(pattern, pattern.label))
         val fieldType = type.fields[pattern.label]
         if (pattern.inner != null && fieldType != null) {
@@ -170,7 +172,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
 
       is Abstraction ->
         binding {
-          expr.params.forEach { checkRecordTypeDuplicates(it.type) }
+          expr.params.forEach { checkTypeDuplicates(it.type) }
           if (expected !is FunType) {
             raise(UnexpectedLambda(expr, expected))
           }
@@ -317,10 +319,13 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
       is Match ->
         binding {
+          if (expr.cases.isEmpty()) raise(IllegalEmptyMatching(expr))
           val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+          // we match types before to catch the invalid match cases before checking for
+          // exhaustiveness
+          val patEnvs = expr.cases.map { matchPatternWithType(it.pattern, scrutineeType).bind() }
           checkExhaustiveness(expr, scrutineeType)
-          for (case in expr.cases) {
-            val patEnv = matchPatternWithType(case.pattern, scrutineeType).bind()
+          for ((case, patEnv) in expr.cases.zip(patEnvs)) {
             checkType(case.expr, env + patEnv, expected).bind()
           }
           Unit
@@ -382,24 +387,28 @@ private fun <V> findDuplicateKeys(pairs: List<Pair<String, V>>): Set<String> {
   return duplicates
 }
 
-private fun BindingScope<ContextualTypeError>.checkRecordTypeDuplicates(type: ast.Type) {
+private fun BindingScope<ContextualTypeError>.checkTypeDuplicates(type: ast.Type) {
   when (type) {
     is ast.Type.Record -> {
       val duplicates = findDuplicateKeys(type.projections)
       if (duplicates.isNotEmpty()) raise(DuplicateRecordTypeFields(type, duplicates))
-      type.projections.forEach { (_, t) -> checkRecordTypeDuplicates(t) }
+      type.projections.forEach { (_, t) -> checkTypeDuplicates(t) }
+    }
+    is ast.Type.Variant -> {
+      val duplicates = findDuplicateKeys(type.fields.map { it.label to it.type })
+      if (duplicates.isNotEmpty()) raise(DuplicateVariantTypeFields(type, duplicates))
+      type.fields.forEach { checkTypeDuplicates(it.type) }
     }
     is ast.Type.Fun -> {
-      type.inputTypes.forEach { checkRecordTypeDuplicates(it) }
-      checkRecordTypeDuplicates(type.returnType)
+      type.inputTypes.forEach { checkTypeDuplicates(it) }
+      checkTypeDuplicates(type.returnType)
     }
-    is ast.Type.Tuple -> type.projections.forEach { checkRecordTypeDuplicates(it) }
+    is ast.Type.Tuple -> type.projections.forEach { checkTypeDuplicates(it) }
     is ast.Type.Sum -> {
-      checkRecordTypeDuplicates(type.left)
-      checkRecordTypeDuplicates(type.right)
+      checkTypeDuplicates(type.left)
+      checkTypeDuplicates(type.right)
     }
-    is ast.Type.ListType -> checkRecordTypeDuplicates(type.elementType)
-    is ast.Type.Variant -> type.fields.forEach { checkRecordTypeDuplicates(it.type) }
+    is ast.Type.ListType -> checkTypeDuplicates(type.elementType)
     ast.Type.Bool,
     ast.Type.Nat,
     ast.Type.Unit -> {}
@@ -465,7 +474,7 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
       is IntLiteral -> binding { Nat }
       is Abstraction ->
         binding {
-          expr.params.forEach { checkRecordTypeDuplicates(it.type) }
+          expr.params.forEach { checkTypeDuplicates(it.type) }
           val paramEnv = expr.params.associate { it.name to it.type.toType() }
           val updatedEnv = env + paramEnv
           val returnType = inferExprType(expr.returnExpr, updatedEnv).bind()
@@ -556,13 +565,12 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
       is Inr -> Err(AmbiguousSumType(expr).withEmptyContext())
       is Match ->
         binding {
+          if (expr.cases.isEmpty()) raise(IllegalEmptyMatching(expr))
           val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+          val patEnvs = expr.cases.map { matchPatternWithType(it.pattern, scrutineeType).bind() }
           checkExhaustiveness(expr, scrutineeType)
-          val firstCase = expr.cases.firstOrNull() ?: error("empty match")
-          val firstPatEnv = matchPatternWithType(firstCase.pattern, scrutineeType).bind()
-          val resultType = inferExprType(firstCase.expr, env + firstPatEnv).bind()
-          for (case in expr.cases.drop(1)) {
-            val patEnv = matchPatternWithType(case.pattern, scrutineeType).bind()
+          val resultType = inferExprType(expr.cases.first().expr, env + patEnvs.first()).bind()
+          for ((case, patEnv) in expr.cases.drop(1).zip(patEnvs.drop(1))) {
             checkType(case.expr, env + patEnv, resultType).bind()
           }
           resultType
@@ -594,8 +602,8 @@ fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError
         // we only check for record types problems within types specified in a function declaration
         // technically, there might be types specified elsewhere, but we currently do not consider
         // it
-        decl.parameterDeclarations.forEach { checkRecordTypeDuplicates(it.type) }
-        if (decl.returnType != null) checkRecordTypeDuplicates(decl.returnType)
+        decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
+        if (decl.returnType != null) checkTypeDuplicates(decl.returnType)
         val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
         val updatedEnv = env + paramEnv
         val specifiedReturnType = decl.returnType?.toType()
@@ -617,6 +625,12 @@ fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeErr
   val hasMain = program.declarations.any { it is FunctionDeclaration && it.name == "main" }
   if (!hasMain) {
     raise(MissingMain(program))
+  }
+  val seen = mutableSetOf<String>()
+  for (decl in program.declarations) {
+    if (decl is FunctionDeclaration && !seen.add(decl.name)) {
+      raise(DuplicateFunctionDeclaration(decl, decl.name))
+    }
   }
   var currentEnv = env
   for (declaration in program.declarations) {

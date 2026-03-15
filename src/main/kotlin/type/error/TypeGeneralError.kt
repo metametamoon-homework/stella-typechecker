@@ -2,7 +2,9 @@ package type.error
 
 import ast.Abstraction
 import ast.Expr
+import ast.Match
 import ast.Node
+import ast.Pattern
 import ast.Var
 import type.RecordType
 import type.Type
@@ -139,6 +141,15 @@ data class AmbiguousVariantType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_VARIANT_TYPE"
 }
 
+data class DuplicateVariantTypeFields(
+  override val errorNode: Node,
+  private val duplicateFields: Set<String>,
+) : TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_VARIANT_TYPE_FIELDS"
+  override val userFacingErrorDescription: String
+    get() = "duplicate variant type fields: ${duplicateFields.sorted().joinToString(", ")}"
+}
+
 data class UnexpectedLambda(override val errorNode: Abstraction, private val expectedType: Type) :
   TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_LAMBDA"
@@ -187,4 +198,26 @@ data class UnexpectedInjection(override val errorNode: Expr, private val expecte
 data class UnexpectedLambdaParameterType(override val errorNode: Node, val expectedType: Type) :
   TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
+}
+
+data class IllegalEmptyMatching(override val errorNode: Match) : TypeError {
+  override val errorId: String = "ERROR_ILLEGAL_EMPTY_MATCHING"
+  override val userFacingErrorDescription: String
+    get() = "empty match expression is not allowed"
+}
+
+data class UnexpectedPatternForType(
+  override val errorNode: Pattern,
+  private val expectedType: Type,
+) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_PATTERN_FOR_TYPE"
+  override val userFacingErrorDescription: String
+    get() = "unexpected pattern for type ${expectedType.prettyPrint()}"
+}
+
+data class DuplicateFunctionDeclaration(override val errorNode: Node, private val name: String) :
+  TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_FUNCTION_DECLARATION"
+  override val userFacingErrorDescription: String
+    get() = "duplicate function declaration '$name'"
 }

@@ -1,0 +1,20 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_PATTERN_FOR_TYPE",
+    "location": "17:7"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(n : Nat) -> Nat {
+  return match n {
+      inl(x) => x
+    | inr(y) => 0
+  }
+}
