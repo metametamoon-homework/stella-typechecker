@@ -60,10 +60,14 @@ import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
 import type.error.UndefinedVariable
+import type.error.UnexpectedInjection
 import type.error.UnexpectedLambda
 import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
+import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordField
+import type.error.UnexpectedTuple
+import type.error.UnexpectedVariant
 import type.error.UnexpectedVariantLabel
 import type.error.withContextLayer
 import type.error.withEmptyContext
@@ -161,7 +165,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is Abstraction ->
         binding {
           if (expected !is FunType) {
-            raise(UnexpectedLambda(expr))
+            raise(UnexpectedLambda(expr, expected))
           }
           val inputType = expected.inputTypes.single()
           if (inputType != expr.params.single().type.toType()) {
@@ -206,6 +210,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
 
       is TupleLiteral ->
         binding {
+          if (expected !is TupleType) raise(UnexpectedTuple(expr, expected))
           val projectionTypes = expr.projections.map { inferType(it, env).bind() }
           val actualType = TupleType(projectionTypes)
           assertExpectedTypeOrReport(actualType, expected, expr)
@@ -219,6 +224,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
       is RecordLiteral ->
         binding {
+          if (expected !is RecordType) raise(UnexpectedRecord(expr, expected))
           val fieldTypes = expr.bindings.mapValues { (_, v) -> inferType(v, env).bind() }
           val actualType = RecordType(fieldTypes)
           assertExpectedTypeOrReport(actualType, expected, expr)
@@ -246,17 +252,17 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
       is Inl ->
         binding {
-          if (expected !is SumType) raise(TypeMismatch(expr, expected, SumType(Unit, Unit)))
+          if (expected !is SumType) raise(UnexpectedInjection(expr, expected))
           checkType(expr.expr, env, expected.left).bind()
         }
       is Inr ->
         binding {
-          if (expected !is SumType) raise(TypeMismatch(expr, expected, SumType(Unit, Unit)))
+          if (expected !is SumType) raise(UnexpectedInjection(expr, expected))
           checkType(expr.expr, env, expected.right).bind()
         }
       is ListLiteral ->
         binding {
-          if (expected !is ListType) raise(UnexpectedList(expr))
+          if (expected !is ListType) raise(UnexpectedList(expr, expected))
           for (element in expr.elements) {
             checkType(element, env, expected.elementType).bind()
           }
@@ -264,7 +270,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
       is ConsList ->
         binding {
-          if (expected !is ListType) raise(UnexpectedList(expr))
+          if (expected !is ListType) raise(UnexpectedList(expr, expected))
           checkType(expr.head, env, expected.elementType).bind()
           checkType(expr.tail, env, expected).bind()
         }
@@ -298,7 +304,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
       is VariantLiteral ->
         binding {
-          if (expected !is VariantType) raise(NotAVariantType(expr))
+          if (expected !is VariantType) raise(UnexpectedVariant(expr, expected))
           if (expr.label !in expected.fields) raise(UnexpectedVariantLabel(expr, expr.label))
           val fieldType = expected.fields.getValue(expr.label)
           checkType(expr.expr, env, fieldType).bind()

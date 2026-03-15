@@ -66,8 +66,11 @@ data class NotAList(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_LIST"
 }
 
-data class UnexpectedList(override val errorNode: Expr) : TypeError {
+data class UnexpectedList(override val errorNode: Expr, private val expectedType: Type) :
+  TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_LIST"
+  override val userFacingErrorDescription: String
+    get() = "found a list where type ${expectedType.prettyPrint()} was expected"
 }
 
 data class AmbiguousList(override val errorNode: Expr) : TypeError {
@@ -89,8 +92,39 @@ data class AmbiguousVariantType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_VARIANT_TYPE"
 }
 
-data class UnexpectedLambda(override val errorNode: Abstraction) : TypeError {
+data class UnexpectedLambda(override val errorNode: Abstraction, private val expectedType: Type) :
+  TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_LAMBDA"
+  override val userFacingErrorDescription: String
+    get() = "found a lambda where type ${expectedType.prettyPrint()} was expected"
+}
+
+data class UnexpectedTuple(override val errorNode: Expr, private val expectedType: Type) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_TUPLE"
+  override val userFacingErrorDescription: String
+    get() = "found a tuple where type ${expectedType.prettyPrint()} was expected"
+}
+
+data class UnexpectedRecord(override val errorNode: Expr, private val expectedType: Type) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_RECORD"
+  override val userFacingErrorDescription: String
+    get() = "found a record where type ${expectedType.prettyPrint()} was expected"
+}
+
+data class UnexpectedVariant(override val errorNode: Expr, private val expectedType: Type) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_VARIANT"
+  override val userFacingErrorDescription: String
+    get() = "found a variant where type ${expectedType.prettyPrint()} was expected"
+}
+
+data class UnexpectedInjection(override val errorNode: Expr, private val expectedType: Type) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_INJECTION"
+  override val userFacingErrorDescription: String
+    get() = "found an injection where type ${expectedType.prettyPrint()} was expected"
 }
 
 data class UnexpectedLambdaParameterType(override val errorNode: Node, val expectedType: Type) :
