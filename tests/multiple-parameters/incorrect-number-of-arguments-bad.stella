@@ -3,8 +3,8 @@ TEST_BEGIN
 {
   "type": "stop-on-first-error",
   "expected-error": {
-    "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
-    "location": "16:10"
+    "code": "ERROR_INCORRECT_NUMBER_OF_ARGUMENTS",
+    "location": null
   }
 }
 TEST_END
@@ -12,6 +12,10 @@ TEST_END
 
 language core;
 
+fn k(x : Nat, y : Bool) -> Nat {
+  return x
+}
+
 fn main(n : Nat) -> Nat {
-  return unit
+  return k(n)
 }

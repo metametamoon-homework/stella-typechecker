@@ -9,6 +9,6 @@ TEST_END
 
 language core;
 
-fn main() -> Bool {
+fn main(n : Nat) -> Bool {
   return true
 }

@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
      "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
-     "location": "20:12"
+     "location": "20:33"
   }
 }
 TEST_END
@@ -16,6 +16,6 @@ fn f(x : fn(Nat) -> Bool) -> Bool {
     return false
 }
 
-fn main() -> Bool {
+fn main(n : Nat) -> Bool {
   return f(fn(x : Nat) { return x })
 }

@@ -20,6 +20,6 @@ fn f(x : fn(Nat) -> Nat) -> Bool {
     return false
 }
 
-fn main() -> Bool {
+fn main(n : Nat) -> Bool {
   return f(id)
 }

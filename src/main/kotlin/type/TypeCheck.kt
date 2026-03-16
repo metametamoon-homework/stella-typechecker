@@ -52,6 +52,8 @@ import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
 import type.error.DuplicateVariantTypeFields
 import type.error.IllegalEmptyMatching
+import type.error.IncorrectArityOfMain
+import type.error.IncorrectNumberOfArguments
 import type.error.MissingMain
 import type.error.MissingRecordFields
 import type.error.NonExhaustivePatternMatching
@@ -69,6 +71,7 @@ import type.error.UnexpectedInjection
 import type.error.UnexpectedLambda
 import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
+import type.error.UnexpectedNumberOfParametersInLambda
 import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordField
@@ -117,6 +120,46 @@ private fun BindingScope<ContextualTypeError>.resolveBindings(
     currentEnv = currentEnv + envUpdate
   }
   return currentEnv
+}
+
+private fun BindingScope<ContextualTypeError>.checkFunctionArgTypes(
+  application: Application,
+  env: Env,
+  expectedInputTypes: List<Type>,
+) {
+  val expectedNumberOfArguments = expectedInputTypes.size
+  val actualNumberOfArguments = application.args.size
+  if (actualNumberOfArguments != expectedNumberOfArguments) {
+    raise(
+      IncorrectNumberOfArguments(application, expectedNumberOfArguments, actualNumberOfArguments)
+    )
+  }
+  for ((argument, expectedType) in application.args.zip(expectedInputTypes)) {
+    checkType(argument, env, expectedType).bind()
+  }
+}
+
+private fun BindingScope<ContextualTypeError>.checkLambdaParameters(
+  abstraction: Abstraction,
+  expectedInputTypes: List<Type>,
+) {
+  val expectedNumberOfParameters = expectedInputTypes.size
+  val actualNumberOfParameters = abstraction.params.size
+  if (actualNumberOfParameters != expectedNumberOfParameters) {
+    raise(
+      UnexpectedNumberOfParametersInLambda(
+        abstraction,
+        expectedNumberOfParameters,
+        actualNumberOfParameters,
+      )
+    )
+  }
+  for ((parameter, expectedType) in abstraction.params.zip(expectedInputTypes)) {
+    val actualType = parameter.type.toType()
+    if (actualType != expectedType) {
+      raise(UnexpectedLambdaParameterType(parameter, expectedType))
+    }
+  }
 }
 
 // a gigantic when is going to be complex, but there is no work around it
@@ -176,12 +219,9 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           if (expected !is FunType) {
             raise(UnexpectedLambda(expr, expected))
           }
-          val inputType = expected.inputTypes.single()
-          if (inputType != expr.params.single().type.toType()) {
-            raise(UnexpectedLambdaParameterType(expr.params.single(), inputType))
-          }
-          val abstractionType = inferExprType(expr, env).bind()
-          assertExpectedTypeOrReport(abstractionType, expected, expr)
+          checkLambdaParameters(expr, expected.inputTypes)
+          val parameterEnv = expr.params.associate { it.name to it.type.toType() }
+          checkType(expr.returnExpr, env + parameterEnv, expected.retType).bind()
           Unit
         }
 
@@ -197,7 +237,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
           if (leftType !is FunType) {
             raise(NotAFunction(expr.func))
           }
-          checkType(expr.args.single(), env, leftType.inputTypes.single()).bind()
+          checkFunctionArgTypes(expr, env, leftType.inputTypes)
           if (leftType.retType != expected) {
             raise(TypeMismatch(expr, expected, leftType.retType))
           }
@@ -434,7 +474,7 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           if (funcType !is FunType) {
             raise(ApplicantNotOfFunctionType(expr))
           }
-          checkType(expr.args.single(), env, funcType.inputTypes.single()).bind()
+          checkFunctionArgTypes(expr, env, funcType.inputTypes)
 
           funcType.retType
         }
@@ -581,7 +621,8 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           val fixArg = expr.expr
           val innerType = inferExprType(fixArg, env).bind()
           if (innerType !is FunType) raise(NotAFunction(fixArg))
-          if (innerType.inputTypes.size != 1) raise(NotAFunction(fixArg)) // close enough
+          if (innerType.inputTypes.size != 1)
+            raise(IncorrectNumberOfArguments(fixArg, 1, innerType.inputTypes.size))
           val inputType = innerType.inputTypes.single()
           if (inputType != innerType.retType) {
             raise(TypeMismatch(fixArg, FunType(listOf(inputType), inputType), innerType))
@@ -631,18 +672,24 @@ fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError
   }
 
 fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeError> = binding {
-  val hasMain = program.declarations.any { it is FunctionDeclaration && it.name == "main" }
-  if (!hasMain) {
+  val functionDeclarations = program.declarations.filterIsInstance<FunctionDeclaration>()
+  val mainDeclaration = functionDeclarations.firstOrNull() { it.name == "main" }
+  if (mainDeclaration == null) {
     raise(MissingMain(program))
   }
+  val actualMainArity = mainDeclaration.parameterDeclarations.size
+  if (actualMainArity != 1) {
+    raise(IncorrectArityOfMain(mainDeclaration, actualMainArity))
+  }
+
   val seen = mutableSetOf<String>()
-  for (decl in program.declarations) {
-    if (decl is FunctionDeclaration && !seen.add(decl.name)) {
+  for (decl in functionDeclarations) {
+    if (!seen.add(decl.name)) {
       raise(DuplicateFunctionDeclaration(decl, decl.name))
     }
   }
   val deltaEnv =
-    program.declarations.filterIsInstance<FunctionDeclaration>().map {
+    functionDeclarations.map {
       val type =
         FunType(
           it.parameterDeclarations.map { param -> param.type.toType() },

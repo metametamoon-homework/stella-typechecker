@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_INCORRECT_ARITY_OF_MAIN",
+    "location": null
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(x : Nat, y : Nat) -> Nat {
+  return x
+}

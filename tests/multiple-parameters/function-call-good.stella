@@ -9,6 +9,10 @@ TEST_END
 
 language core;
 
-fn main(n : Nat) -> Bool {
-  return false
+fn k(x : Nat, y : Bool) -> Nat {
+  return x
+}
+
+fn main(n : Nat) -> Nat {
+  return k(n, true)
 }

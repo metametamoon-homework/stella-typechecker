@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_NUMBER_OF_PARAMETERS_IN_LAMBDA",
+    "location": null
+  }
+}
+TEST_END
+*/
+
+language core;
+
+fn main(n : Nat) -> fn(Nat, Bool) -> Nat {
+  return fn(x : Nat) { return x }
+}

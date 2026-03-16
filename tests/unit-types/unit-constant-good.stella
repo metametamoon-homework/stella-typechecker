@@ -9,6 +9,6 @@ TEST_END
 
 language core;
 
-fn main() -> Unit {
+fn main(n : Nat) -> Unit {
   return unit
 }

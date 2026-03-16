@@ -30,6 +30,16 @@ data class NotAFunction(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_FUNCTION"
 }
 
+data class IncorrectNumberOfArguments(
+  override val errorNode: Expr,
+  private val expectedNumberOfArguments: Int,
+  private val actualNumberOfArguments: Int,
+) : TypeError {
+  override val errorId: String = "ERROR_INCORRECT_NUMBER_OF_ARGUMENTS"
+  override val userFacingErrorDescription: String
+    get() = "expected $expectedNumberOfArguments arguments, but got $actualNumberOfArguments"
+}
+
 data class NotATuple(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_TUPLE"
 }
@@ -109,6 +119,13 @@ data class NonExhaustivePatternMatching(override val errorNode: Expr) : TypeErro
 
 data class MissingMain(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_MISSING_MAIN"
+}
+
+data class IncorrectArityOfMain(override val errorNode: Node, private val actualArity: Int) :
+  TypeError {
+  override val errorId: String = "ERROR_INCORRECT_ARITY_OF_MAIN"
+  override val userFacingErrorDescription: String
+    get() = "main must have arity 1, but has arity $actualArity"
 }
 
 data class NotAList(override val errorNode: Expr) : TypeError {
@@ -198,6 +215,17 @@ data class UnexpectedInjection(override val errorNode: Expr, private val expecte
 data class UnexpectedLambdaParameterType(override val errorNode: Node, val expectedType: Type) :
   TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
+}
+
+data class UnexpectedNumberOfParametersInLambda(
+  override val errorNode: Abstraction,
+  private val expectedNumberOfParameters: Int,
+  private val actualNumberOfParameters: Int,
+) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_NUMBER_OF_PARAMETERS_IN_LAMBDA"
+  override val userFacingErrorDescription: String
+    get() =
+      "expected a lambda with $expectedNumberOfParameters parameters, but got $actualNumberOfParameters"
 }
 
 data class IllegalEmptyMatching(override val errorNode: Match) : TypeError {
