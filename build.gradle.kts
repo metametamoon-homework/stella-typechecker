@@ -1,7 +1,9 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
+import org.gradle.api.plugins.JavaApplication
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
+  application
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.antlr)
@@ -11,13 +13,14 @@ plugins {
 
 group = "com.github.metametamoon"
 
-version = "1.0-SNAPSHOT"
+version = "1.0"
 
 repositories { mavenCentral() }
 
 sourceSets["main"].kotlin.srcDir("build/generatedAntlr/")
 
 dependencies {
+  implementation("com.github.ajalt.clikt:clikt:5.0.3")
   implementation("com.strumenta:antlr-kotlin-runtime-jvm:1.0.0")
   implementation("com.michael-bull.kotlin-result:kotlin-result:2.1.0")
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
@@ -36,6 +39,8 @@ kotlin {
     allWarningsAsErrors = true
   }
 }
+
+configure<JavaApplication> { mainClass.set("MainKt") }
 
 tasks.test { useJUnitPlatform() }
 

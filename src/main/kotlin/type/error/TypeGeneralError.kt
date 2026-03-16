@@ -16,8 +16,7 @@ data class TypeMismatch(
 ) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
   override val userFacingErrorDescription: String
-    get() =
-      "Expected type\n\t${expectedType.prettyPrint()}\nwith actual type\n\t${actualType.prettyPrint()}"
+    get() = "expected type ${expectedType.prettyPrint()}, but got ${actualType.prettyPrint()}"
 }
 
 data class UndefinedVariable(override val errorNode: Var) : TypeError {
@@ -28,6 +27,8 @@ data class UndefinedVariable(override val errorNode: Var) : TypeError {
 
 data class NotAFunction(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_FUNCTION"
+  override val userFacingErrorDescription: String
+    get() = "expression is not a function"
 }
 
 data class IncorrectNumberOfArguments(
@@ -42,14 +43,20 @@ data class IncorrectNumberOfArguments(
 
 data class NotATuple(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_TUPLE"
+  override val userFacingErrorDescription: String
+    get() = "expression is not a tuple"
 }
 
 data class TupleIndexOutOfBound(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_TUPLE_INDEX_OUT_OF_BOUNDS"
+  override val userFacingErrorDescription: String
+    get() = "tuple index is out of bounds"
 }
 
 data class NotARecord(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_RECORD"
+  override val userFacingErrorDescription: String
+    get() = "expression is not a record"
 }
 
 data class UnexpectedRecordField(override val errorNode: Expr, private val label: String) :
@@ -107,18 +114,26 @@ data class DuplicateRecordTypeFields(
 
 data class AmbiguousSumType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_SUM_TYPE"
+  override val userFacingErrorDescription: String
+    get() = "ambiguous sum type"
 }
 
 data class NotASumType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
+  override val userFacingErrorDescription: String
+    get() = "expression is not a sum type"
 }
 
 data class NonExhaustivePatternMatching(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NONEXHAUSTIVE_MATCH_PATTERNS"
+  override val userFacingErrorDescription: String
+    get() = "non-exhaustive pattern matching"
 }
 
 data class MissingMain(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_MISSING_MAIN"
+  override val userFacingErrorDescription: String
+    get() = "missing main function"
 }
 
 data class IncorrectArityOfMain(override val errorNode: Node, private val actualArity: Int) :
@@ -130,6 +145,8 @@ data class IncorrectArityOfMain(override val errorNode: Node, private val actual
 
 data class NotAList(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_NOT_A_LIST"
+  override val userFacingErrorDescription: String
+    get() = "expression is not a list"
 }
 
 data class UnexpectedList(override val errorNode: Expr, private val expectedType: Type) :
@@ -141,6 +158,8 @@ data class UnexpectedList(override val errorNode: Expr, private val expectedType
 
 data class AmbiguousList(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_LIST"
+  override val userFacingErrorDescription: String
+    get() = "ambiguous list type"
 }
 
 data class UnexpectedVariantLabel(override val errorNode: Expr, private val label: String) :
@@ -152,10 +171,14 @@ data class UnexpectedVariantLabel(override val errorNode: Expr, private val labe
 
 data class NotAVariantType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
+  override val userFacingErrorDescription: String
+    get() = "expression is not a variant type"
 }
 
 data class AmbiguousVariantType(override val errorNode: Expr) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_VARIANT_TYPE"
+  override val userFacingErrorDescription: String
+    get() = "ambiguous variant type"
 }
 
 data class DuplicateVariantTypeFields(
@@ -212,9 +235,13 @@ data class UnexpectedInjection(override val errorNode: Expr, private val expecte
     get() = "found an injection where type ${expectedType.prettyPrint()} was expected"
 }
 
-data class UnexpectedLambdaParameterType(override val errorNode: Node, val expectedType: Type) :
-  TypeError {
+data class UnexpectedLambdaParameterType(
+  override val errorNode: Node,
+  private val expectedType: Type,
+) : TypeError {
   override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
+  override val userFacingErrorDescription: String
+    get() = "unexpected parameter type, expected ${expectedType.prettyPrint()}"
 }
 
 data class UnexpectedNumberOfParametersInLambda(
