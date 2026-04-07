@@ -2,9 +2,11 @@ package type
 
 import ast.Abstraction
 import ast.Application
+import ast.Assign
 import ast.Binding
 import ast.ConsList
 import ast.Declaration
+import ast.Deref
 import ast.Expr
 import ast.FalseLiteral
 import ast.Fix
@@ -22,12 +24,14 @@ import ast.ListLiteral
 import ast.ListTail
 import ast.Match
 import ast.NatRec
+import ast.NewRef
 import ast.Node
 import ast.Pattern
 import ast.Pred
 import ast.Program
 import ast.RecordDotExpression
 import ast.RecordLiteral
+import ast.Sequence
 import ast.Succ
 import ast.TrueLiteral
 import ast.TupleDotExpression
@@ -59,6 +63,7 @@ import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
 import type.error.NotAList
 import type.error.NotARecord
+import type.error.NotARef
 import type.error.NotATuple
 import type.error.TupleIndexOutOfBound
 import type.error.TypeError
@@ -74,6 +79,7 @@ import type.error.UnexpectedNumberOfParametersInLambda
 import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordFields
+import type.error.UnexpectedReference
 import type.error.UnexpectedTuple
 import type.error.UnexpectedTupleLength
 import type.error.UnexpectedVariant
@@ -381,6 +387,41 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
       is Pattern.Inl -> error("unreachable")
       is Pattern.Inr -> error("unreachable")
       is Pattern.Variant -> error("unreachable")
+      is Assign ->
+        binding {
+          val lhsType = inferExprType(expr.lhs, env).bind()
+          if (lhsType !is RefType) {
+            raise(NotARef(expr.lhs, lhsType))
+          }
+          checkType(expr.rhs, env, lhsType.inner).bind()
+          assertExpectedTypeOrReport(type.Unit, expected, expr)
+          Unit
+        }
+      is Deref ->
+        binding {
+          val inferredType = inferExprType(expr.arg, env).bind()
+          if (inferredType !is RefType) {
+            raise(NotARef(expr, inferredType))
+          }
+          assertExpectedTypeOrReport(
+            actualType = inferredType,
+            expected = RefType(expected),
+            expr.arg,
+          )
+          Unit
+        }
+      is Sequence ->
+        binding {
+          checkType(expr.lhs, env, type.Unit).bind()
+          checkType(expr.rhs, env, expected).bind()
+        }
+      is NewRef ->
+        binding {
+          if (expected !is RefType) {
+            raise(UnexpectedReference(expr))
+          }
+          checkType(expr.initValue, env, expected.inner).bind()
+        }
     }
   return result.wrapWhileTypechecking(expr, expected)
 }
@@ -425,6 +466,7 @@ private fun <V> findDuplicateKeys(pairs: List<Pair<String, V>>): Set<String> {
   return duplicates
 }
 
+@Suppress("CyclomaticComplexMethod")
 private fun BindingScope<ContextualTypeError>.checkTypeDuplicates(type: ast.Type) {
   when (type) {
     is ast.Type.Record -> {
@@ -450,6 +492,7 @@ private fun BindingScope<ContextualTypeError>.checkTypeDuplicates(type: ast.Type
     ast.Type.Bool,
     ast.Type.Nat,
     ast.Type.Unit -> {}
+    is ast.Type.Ref -> checkTypeDuplicates(type.inner)
   }
 }
 
@@ -631,6 +674,14 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
       is Pattern.Inl -> error("unreachable")
       is Pattern.Inr -> error("unreachable")
       is Pattern.Variant -> error("unreachable")
+      is Assign -> TODO()
+      is Deref -> TODO()
+      is Sequence -> TODO()
+      is NewRef ->
+        binding {
+          val inner = inferType(expr.initValue, env).bind()
+          RefType(inner)
+        }
     }
   return result.wrapWhileInferring(expr)
 }

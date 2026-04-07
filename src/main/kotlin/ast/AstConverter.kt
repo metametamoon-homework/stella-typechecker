@@ -113,6 +113,11 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.FixContext -> Fix(expr = this.expr_!!.toAst(), position = toPosition())
     is StellaParser.ParenthesisedExprContext -> this.expr_!!.toAst()
     is StellaParser.TerminatingSemicolonContext -> this.expr_!!.toAst()
+    is StellaParser.AssignContext -> Assign(this.lhs!!.toAst(), this.rhs!!.toAst(), toPosition())
+    is StellaParser.SequenceContext ->
+      Sequence(this.expr1!!.toAst(), this.expr2!!.toAst(), toPosition())
+    is StellaParser.DerefContext -> Deref(this.expr_!!.toAst(), toPosition())
+    is StellaParser.RefContext -> NewRef(this.expr_!!.toAst(), position = toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -166,5 +171,6 @@ fun StellaParser.StellatypeContext.toAst(): Type =
         position = toPosition(),
       )
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
+    is StellaParser.TypeRefContext -> Type.Ref(this.type_!!.toAst(), position = toPosition())
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

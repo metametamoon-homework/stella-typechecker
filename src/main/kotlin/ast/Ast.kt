@@ -43,6 +43,8 @@ sealed interface Type : Node {
     override val position: Position? = null,
   ) : Type
 
+  data class Ref(val inner: Type, override val position: Position? = null) : Type
+
   data class Tuple(val projections: List<Type>, override val position: Position? = null) : Type
 
   data class Record(

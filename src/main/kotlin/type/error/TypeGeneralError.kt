@@ -269,3 +269,20 @@ data class DuplicateFunctionDeclaration(override val errorNode: Node, private va
   override val userFacingErrorDescription: String
     get() = "duplicate function declaration '$name'"
 }
+
+data class NotARef(override val errorNode: Node, private val actualType: Type?) : TypeError {
+  override val errorId: String = "ERROR_NOT_A_REFERENCE"
+  override val userFacingErrorDescription: String
+    get() = buildString {
+      append("expected a reference type")
+      if (actualType != null) {
+        append(", but got: ${actualType.prettyPrint()}")
+      }
+    }
+}
+
+data class UnexpectedReference(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_REFERENCE"
+  override val userFacingErrorDescription: String
+    get() = buildString { append("unexpected 'new'") }
+}

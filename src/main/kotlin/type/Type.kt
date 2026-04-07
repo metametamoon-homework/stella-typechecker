@@ -30,6 +30,10 @@ data class TupleType(val projections: List<Type>) : Type {
   }
 }
 
+data class RefType(val inner: Type) : Type {
+  override fun prettyPrint(): String = "&" + inner.prettyPrint()
+}
+
 data class RecordType(val fields: Map<String, Type>) : Type {
   override fun prettyPrint(): String {
     val entries = fields.entries.joinToString(", ") { (k, v) -> "$k : ${v.prettyPrint()}" }
@@ -58,3 +62,5 @@ typealias Env = Map<String, Type>
 val emptyEnv: Env = emptyMap()
 
 val defaultEnv: Env = mapOf("Nat::iszerp" to FunType(listOf(Nat), Bool))
+
+fun Type.isSubtypeOf(other: Type): Boolean = this == other
