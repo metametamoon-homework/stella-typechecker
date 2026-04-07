@@ -118,6 +118,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
       Sequence(this.expr1!!.toAst(), this.expr2!!.toAst(), toPosition())
     is StellaParser.DerefContext -> Deref(this.expr_!!.toAst(), toPosition())
     is StellaParser.RefContext -> NewRef(this.expr_!!.toAst(), position = toPosition())
+    is StellaParser.PanicContext -> Panic(toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 

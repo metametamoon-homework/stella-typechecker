@@ -26,6 +26,7 @@ import ast.Match
 import ast.NatRec
 import ast.NewRef
 import ast.Node
+import ast.Panic
 import ast.Pattern
 import ast.Pred
 import ast.Program
@@ -47,6 +48,7 @@ import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
 import type.error.AmbiguousList
+import type.error.AmbiguousPanic
 import type.error.AmbiguousSumType
 import type.error.AmbiguousVariantType
 import type.error.ContextualTypeError
@@ -394,7 +396,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
             raise(NotARef(expr.lhs, lhsType))
           }
           checkType(expr.rhs, env, lhsType.inner).bind()
-          assertExpectedTypeOrReport(type.Unit, expected, expr)
+          assertExpectedTypeOrReport(Unit, expected, expr)
           Unit
         }
       is Deref ->
@@ -412,7 +414,7 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
         }
       is Sequence ->
         binding {
-          checkType(expr.lhs, env, type.Unit).bind()
+          checkType(expr.lhs, env, Unit).bind()
           checkType(expr.rhs, env, expected).bind()
         }
       is NewRef ->
@@ -421,6 +423,11 @@ fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualType
             raise(UnexpectedReference(expr))
           }
           checkType(expr.initValue, env, expected.inner).bind()
+        }
+
+      is Panic ->
+        binding {
+          Unit // ok, the type is as expected
         }
     }
   return result.wrapWhileTypechecking(expr, expected)
@@ -682,6 +689,8 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           val inner = inferType(expr.initValue, env).bind()
           RefType(inner)
         }
+
+      is Panic -> binding { raise(AmbiguousPanic(expr)) }
     }
   return result.wrapWhileInferring(expr)
 }

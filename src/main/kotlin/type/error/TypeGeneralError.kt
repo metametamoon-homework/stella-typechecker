@@ -286,3 +286,9 @@ data class UnexpectedReference(override val errorNode: Node) : TypeError {
   override val userFacingErrorDescription: String
     get() = buildString { append("unexpected 'new'") }
 }
+
+data class AmbiguousPanic(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_PANIC_TYPE"
+  override val userFacingErrorDescription: String
+    get() = buildString { append("cannot infer type of panic") }
+}
