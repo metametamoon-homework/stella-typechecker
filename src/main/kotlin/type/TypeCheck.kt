@@ -45,7 +45,6 @@ import com.github.michaelbull.result.mapError
 import type.error.AmbiguousList
 import type.error.AmbiguousSumType
 import type.error.AmbiguousVariantType
-import type.error.ApplicantNotOfFunctionType
 import type.error.ContextualTypeError
 import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
@@ -74,7 +73,6 @@ import type.error.UnexpectedList
 import type.error.UnexpectedNumberOfParametersInLambda
 import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
-import type.error.UnexpectedRecordField
 import type.error.UnexpectedRecordFields
 import type.error.UnexpectedTuple
 import type.error.UnexpectedTupleLength
@@ -99,7 +97,7 @@ fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTy
     is Pattern.Variant ->
       binding {
         if (type !is VariantType) raise(UnexpectedPatternForType(pattern, type))
-        if (pattern.label !in type.fields) raise(UnexpectedVariantLabel(pattern, pattern.label))
+        if (pattern.label !in type.fields) raise(UnexpectedPatternForType(pattern, type))
         val fieldType = type.fields[pattern.label]
         if (pattern.inner != null && fieldType != null) {
           matchPatternWithType(pattern.inner, fieldType).bind()
@@ -472,7 +470,7 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
         binding {
           val funcType = inferExprType(expr.func, env).bind()
           if (funcType !is FunType) {
-            raise(ApplicantNotOfFunctionType(expr))
+            raise(NotAFunction(expr))
           }
           checkFunctionArgTypes(expr, env, funcType.inputTypes)
 
@@ -552,7 +550,8 @@ fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
           if (receiverType !is RecordType) {
             raise(NotARecord(expr))
           }
-          receiverType.fields[expr.label] ?: raise(UnexpectedRecordField(expr, expr.label))
+          receiverType.fields[expr.label]
+            ?: raise(UnexpectedFieldAccess(expr, receiverType, expr.label))
         }
       is TypeAscription ->
         binding {

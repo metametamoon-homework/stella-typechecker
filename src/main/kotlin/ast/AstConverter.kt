@@ -112,6 +112,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
       )
     is StellaParser.FixContext -> Fix(expr = this.expr_!!.toAst(), position = toPosition())
     is StellaParser.ParenthesisedExprContext -> this.expr_!!.toAst()
+    is StellaParser.TerminatingSemicolonContext -> this.expr_!!.toAst()
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 

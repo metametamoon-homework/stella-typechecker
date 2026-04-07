@@ -59,13 +59,6 @@ data class NotARecord(override val errorNode: Expr) : TypeError {
     get() = "expression is not a record"
 }
 
-data class UnexpectedRecordField(override val errorNode: Expr, private val label: String) :
-  TypeError {
-  override val errorId: String = "ERROR_UNEXPECTED_RECORD_FIELD"
-  override val userFacingErrorDescription: String
-    get() = "record does not have field '$label'"
-}
-
 data class UnexpectedFieldAccess(
   override val errorNode: Expr,
   private val type: RecordType,

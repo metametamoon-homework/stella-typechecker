@@ -48,7 +48,7 @@ private fun typeCheckFile(sourceFile: File): Int {
       0
     },
     failure = { error ->
-      println(error.prettyPrintError(sourceFile.canonicalPath))
+      System.err.println(error.prettyPrintError(sourceFile.canonicalPath))
       1
     },
   )
