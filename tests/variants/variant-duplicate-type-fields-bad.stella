@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #variants;
+
 fn main(n : <| a : Nat, a : Bool |>) -> Nat {
   return 0
 }

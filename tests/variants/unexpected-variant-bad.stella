@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #variants;
+
 fn main(n : Nat) -> Nat {
   return <| left = n |>
 }

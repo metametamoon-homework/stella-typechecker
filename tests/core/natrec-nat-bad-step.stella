@@ -17,7 +17,7 @@ fn id(n : Bool) -> Bool {
     return n
 }
 
-fn next(n: Nat) -> fn(Bool) -> Bool {
+fn next(n : Nat) -> (fn(Bool) -> Bool) {
     return id
 }
 

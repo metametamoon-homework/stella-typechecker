@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #tuples' or '#pairs;
+
 fn main(n : Nat) -> Nat {
   return n.2
 }

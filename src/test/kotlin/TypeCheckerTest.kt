@@ -16,44 +16,15 @@ import type.TypeChecker
 import type.emptyEnv
 import type.error.prettyPrintError
 
-internal const val STELLA_EXTENSION = "stella"
-
 class TypeCheckerTest {
 
-  private val testsRoot = File("tests")
-
   @TestFactory
-  fun typeCheckerTests(): List<DynamicTest> {
-    val filterRegex = (System.getenv("STELLA_TESTS") ?: ".*").toRegex()
-    return testsRoot
-      .walkTopDown()
-      .filter { it.isFile && it.extension == STELLA_EXTENSION }
-      .mapNotNull { sourceFile ->
-        val path = sourceFile.relativeTo(testsRoot).path
-        if (filterRegex.matches(path)) {
-          val sourceRelativePath = path.removeSuffix(".$STELLA_EXTENSION")
-          DynamicTest.dynamicTest(sourceRelativePath, sourceFile.toURI()) {
-            typeCheckTest(sourceFile)
-          }
-        } else {
-          null
-        }
-      }
-      .toList()
-  }
+  fun typeCheckerTests(): List<DynamicTest> = stellaTests(testBody = ::typeCheckTest)
 
   private fun typeCheckTest(sourceFile: File) {
     val sourceText = sourceFile.readText()
     println("Performing analysis of ${sourceFile.toURI()}\n")
-    val textSpec =
-      sourceFile
-        .readLines()
-        .dropWhile { "TEST_BEGIN" !in it }
-        .drop(1)
-        .takeWhile { "TEST_END" !in it }
-        .joinToString("\n")
-        .trim()
-    val programSpec = Json.decodeFromString<TestDescription>(textSpec)
+    val programSpec = extractTestDescription(sourceFile)
 
     val lexer = StellaLexer(CharStreams.fromString(sourceText))
     val program = StellaParser(CommonTokenStream(lexer)).program().toAst()

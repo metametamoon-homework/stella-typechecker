@@ -9,6 +9,8 @@ TEST_END
 
 language core;
 
+extend with #records;
+
 fn main(n : { a : Nat, b : Nat }) -> { a : Nat, b : Nat } {
   return n
 }

@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #let-bindings, #variants;
+
 fn main(n : Nat) -> Nat {
   return let x = <| left = n |> in 0
 }

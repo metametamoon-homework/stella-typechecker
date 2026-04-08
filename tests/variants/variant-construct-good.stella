@@ -9,6 +9,8 @@ TEST_END
 
 language core;
 
+extend with #variants;
+
 fn main(x : Nat) -> <| left : Nat, right : Bool |> {
   return <| left = x |>
 }

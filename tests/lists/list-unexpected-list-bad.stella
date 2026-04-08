@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #lists;
+
 fn main(n : Bool) -> Nat {
   return [n]
 }

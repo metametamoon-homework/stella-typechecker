@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #pairs' or '#tuples;
+
 fn main(n : Nat) -> {Nat, Bool} {
   return {n, n}
 }

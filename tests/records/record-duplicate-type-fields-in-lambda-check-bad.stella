@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #records;
+
 fn f(x : fn({a : Nat, a : Nat}) -> Nat) -> Nat {
   return 0
 }

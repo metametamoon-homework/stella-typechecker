@@ -9,6 +9,8 @@ TEST_END
 
 language core;
 
+extend with #variants;
+
 fn main(x : <| left : Nat, right : Bool |>) -> Nat {
   return match x {
       <| left = n |> => n

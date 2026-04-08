@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #unit-type;
+
 fn main(n : Nat) -> Unit {
   return n
 }

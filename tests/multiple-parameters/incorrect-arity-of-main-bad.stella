@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #multiparameter-functions;
+
 fn main(x : Nat, y : Nat) -> Nat {
   return x
 }

@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #let-bindings, #fixpoint-combinator' or '#general-recursion;
+
 fn main(n : Nat) -> Nat {
   return let a = fix(n) in a
 }

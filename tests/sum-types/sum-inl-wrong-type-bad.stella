@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #sum-types;
+
 fn main(x : Bool) -> Nat + Bool {
   return inl(x)
 }

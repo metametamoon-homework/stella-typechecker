@@ -12,6 +12,8 @@ TEST_END
 
 language core;
 
+extend with #sum-types;
+
 fn main(n : Nat) -> Nat {
   return inr(n)
 }
