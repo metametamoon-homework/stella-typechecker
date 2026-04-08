@@ -111,3 +111,5 @@ data class NewRef(val initValue: Expr, override val position: Position?) : Expr
 data class Sequence(val lhs: Expr, var rhs: Expr, override val position: Position?) : Expr
 
 data class Panic(override val position: Position?) : Expr
+
+data class Throw(val arg: Expr, override val position: Position?) : Expr

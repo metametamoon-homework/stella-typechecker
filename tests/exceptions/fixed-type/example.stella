@@ -1,0 +1,18 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+
+extend with #exceptions, #exception-type-declaration;
+
+exception type = Nat
+
+fn main(n : Nat) -> Bool {
+   return throw(1)
+}

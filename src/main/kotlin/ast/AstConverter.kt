@@ -14,8 +14,18 @@ private fun ParserRuleContext.toPosition(): Position? {
   )
 }
 
-fun StellaParser.ProgramContext.toAst(): Program =
-  Program(declarations = decls.map { it.toAst() }, position = toPosition())
+fun StellaParser.ProgramContext.toAst(): Program {
+  return Program(
+    declarations = decls.map { it.toAst() },
+    extensions =
+      this.extension().flatMap {
+        (it as StellaParser.AnExtensionContext).ExtensionName().map { singleExtensionName ->
+          singleExtensionName.text
+        }
+      },
+    position = toPosition(),
+  )
+}
 
 fun StellaParser.DeclContext.toAst(): Declaration =
   when (this) {
@@ -28,6 +38,8 @@ fun StellaParser.DeclContext.toAst(): Declaration =
         returnExpr = this.returnExpr!!.toAst(),
         position = toPosition(),
       )
+    is StellaParser.DeclExceptionTypeContext ->
+      ExceptionTypeDeclaration(this.exceptionType!!.toAst())
     else -> error("Unsupported declaration: ${this::class.simpleName}")
   }
 
@@ -119,6 +131,7 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.DerefContext -> Deref(this.expr_!!.toAst(), toPosition())
     is StellaParser.RefContext -> NewRef(this.expr_!!.toAst(), position = toPosition())
     is StellaParser.PanicContext -> Panic(toPosition())
+    is StellaParser.ThrowContext -> Throw(this.expr_!!.toAst(), position = toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 

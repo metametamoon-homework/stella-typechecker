@@ -8,20 +8,20 @@ sealed interface Node {
   val position: Position?
 }
 
-data class Program(val declarations: List<Declaration>, override val position: Position? = null) :
-  Node
+data class Program(
+  val declarations: List<Declaration>,
+  override val position: Position? = null,
+  val extensions: List<String>,
+) : Node {
+  init {
+    println("Extensions are: $extensions")
+  }
+}
 
 data class ParamDeclaration(val name: String, val type: Type, override val position: Position?) :
   Node
 
 sealed interface Declaration : Node
-
-data class FunDeclaration(
-  val name: String,
-  val type: Type,
-  val paramDecls: List<ParamDeclaration>,
-  override val position: Position? = null,
-) : Declaration
 
 sealed interface Type : Node {
 
@@ -70,3 +70,8 @@ data class FunctionDeclaration(
   val returnExpr: Expr,
   override val position: Position? = null,
 ) : Declaration
+
+sealed interface ExceptionInfoDeclaration : Declaration
+
+data class ExceptionTypeDeclaration(val type: ast.Type, override val position: Position? = null) :
+  ExceptionInfoDeclaration

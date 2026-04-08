@@ -12,9 +12,9 @@ import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
+import type.TypeChecker
 import type.emptyEnv
 import type.error.prettyPrintError
-import type.inferType
 
 internal const val STELLA_EXTENSION = "stella"
 
@@ -57,7 +57,7 @@ class TypeCheckerTest {
 
     val lexer = StellaLexer(CharStreams.fromString(sourceText))
     val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-    val result = inferType(program, emptyEnv)
+    val result = TypeChecker().inferType(program, emptyEnv)
 
     result.mapBoth(
       success = { println("Successfully typed!") },
