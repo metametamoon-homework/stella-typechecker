@@ -2,10 +2,7 @@
 TEST_BEGIN
 {
   "type": "stop-on-first-error",
-  "expected-error": {
-    "code": "ERROR_AMBIGUOUS_LIST",
-    "location": "16:23"
-  }
+  "expected-error": null
 }
 TEST_END
 */

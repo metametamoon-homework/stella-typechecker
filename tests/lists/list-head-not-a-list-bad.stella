@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_NOT_A_LIST",
-    "location": "16:21"
+    "location": "18:21"
   }
 }
 TEST_END

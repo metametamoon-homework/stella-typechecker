@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_UNEXPECTED_TUPLE",
-    "location": "16:10"
+    "location": "18:10"
   }
 }
 TEST_END
@@ -12,7 +12,7 @@ TEST_END
 
 language core;
 
-extend with #tuples' or '#pairs;
+extend with #tuples;
 
 fn main(n : Nat) -> Nat {
   return {n, n}

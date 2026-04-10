@@ -16,9 +16,7 @@ internal fun stellaTests(
       val path = sourceFile.relativeTo(testsRoot).path
       if (filterRegex.matches(path)) {
         val sourceRelativePath = path.removeSuffix(".$STELLA_EXTENSION")
-        DynamicTest.dynamicTest(sourceRelativePath, sourceFile.toURI()) {
-          testBody(sourceFile)
-        }
+        DynamicTest.dynamicTest(sourceRelativePath, sourceFile.toURI()) { testBody(sourceFile) }
       } else {
         null
       }

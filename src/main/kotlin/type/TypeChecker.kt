@@ -499,7 +499,7 @@ class TypeChecker {
     expected: type.Type,
     expr: Expr,
   ) {
-    if (actualType != expected) {
+    if (!actualType.isSubtypeOf(expected)) {
       raise(TypeMismatch(expr, expected, actualType))
     }
   }

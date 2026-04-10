@@ -7,7 +7,6 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlinx.serialization.json.Json
 import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
 import org.junit.jupiter.api.DynamicTest
@@ -18,8 +17,7 @@ import type.error.prettyPrintError
 
 class TypeCheckerTest {
 
-  @TestFactory
-  fun typeCheckerTests(): List<DynamicTest> = stellaTests(testBody = ::typeCheckTest)
+  @TestFactory fun typeCheckerTests(): List<DynamicTest> = stellaTests(testBody = ::typeCheckTest)
 
   private fun typeCheckTest(sourceFile: File) {
     val sourceText = sourceFile.readText()

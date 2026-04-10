@@ -1,5 +1,4 @@
 import java.io.File
-import kotlin.test.assertEquals
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 
@@ -10,7 +9,7 @@ private val REFERENCE_ERROR_REGEX = Regex("ERROR_[A-Z0-9_]+")
 class ReferenceImplementationConsistencyTest {
   @TestFactory
   fun referenceImplementationTests(): List<DynamicTest> =
-    stellaTests(filterRegex = "lists.list.amb.*".toRegex(), testBody = ::referenceImplementationTest)
+    stellaTests(filterRegex = ".*".toRegex(), testBody = ::referenceImplementationTest)
 
   private fun referenceImplementationTest(sourceFile: File) {
     println("Running tests on ${sourceFile.toURI()}")
@@ -31,8 +30,7 @@ class ReferenceImplementationConsistencyTest {
     println("middle")
     println(output2)
 
-    val actualPossibleCodes =
-      REFERENCE_ERROR_REGEX.findAll(output2).toList().map { it.value }
+    val actualPossibleCodes = REFERENCE_ERROR_REGEX.findAll(output2).toList().map { it.value }
     process.waitFor()
 
     if (expectedCode == null) {

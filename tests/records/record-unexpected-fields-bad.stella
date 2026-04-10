@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_UNEXPECTED_RECORD_FIELDS",
-    "location": "16:10"
+    "location": "18:10"
   }
 }
 TEST_END

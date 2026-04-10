@@ -1,8 +1,7 @@
 import java.io.File
 
 private const val REFERENCE_COMMAND = "docker run -i fizruk/stella typecheck"
-private val EXTENSION_HINT_REGEX =
-  Regex("enable '(#.+)' extension")
+private val EXTENSION_HINT_REGEX = Regex("enable '(#.+)' extension")
 private const val LANGUAGE_CORE_LINE = "language core;"
 private const val EXTEND_WITH_PREFIX = "extend with "
 
