@@ -113,3 +113,12 @@ data class Sequence(val lhs: Expr, var rhs: Expr, override val position: Positio
 data class Panic(override val position: Position?) : Expr
 
 data class Throw(val arg: Expr, override val position: Position?) : Expr
+
+data class TryWith(val tryExpr: Expr, val fallback: Expr, override val position: Position?) : Expr
+
+data class TryCatch(
+  val tryExpr: Expr,
+  val pattern: Pattern,
+  val catch: Expr,
+  override val position: Position?,
+) : Expr

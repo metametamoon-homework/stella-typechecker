@@ -4,7 +4,7 @@ sealed interface Type {
   fun prettyPrint(): String
 }
 
-data object Unit : Type {
+data object UnitType : Type {
   override fun prettyPrint(): String = "Unit"
 }
 

@@ -9,7 +9,8 @@ TEST_END
 
 language core;
 
-extend with #exceptions, #exception-type-declaration, #natural-literals;
+extend with #open-variant-exceptions;
+
 
 exception type = Nat
 

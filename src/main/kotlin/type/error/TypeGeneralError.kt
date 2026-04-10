@@ -292,3 +292,9 @@ data class AmbiguousPanic(override val errorNode: Node) : TypeError {
   override val userFacingErrorDescription: String
     get() = buildString { append("cannot infer type of panic") }
 }
+
+data class AmbiguousThrow(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_THROW_TYPE"
+  override val userFacingErrorDescription: String
+    get() = buildString { append("cannot infer type of throw") }
+}

@@ -1,0 +1,21 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_AMBIGUOUS_THROW_TYPE",
+    "location": "20:19"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #exceptions, #exception-type-declaration, #natural-literals, #let-bindings;
+
+exception type = Nat
+
+fn main(n : Nat) -> Bool {
+   return let x = throw(1) in x
+}

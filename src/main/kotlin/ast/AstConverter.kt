@@ -132,14 +132,23 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.RefContext -> NewRef(this.expr_!!.toAst(), position = toPosition())
     is StellaParser.PanicContext -> Panic(toPosition())
     is StellaParser.ThrowContext -> Throw(this.expr_!!.toAst(), position = toPosition())
+    is StellaParser.TryWithContext ->
+      TryWith(this.tryExpr!!.toAst(), this.fallbackExpr!!.toAst(), position = toPosition())
+    is StellaParser.TryCatchContext ->
+      TryCatch(
+        this.tryExpr!!.toAst(),
+        this.pat!!.toAst(),
+        this.fallbackExpr!!.toAst(),
+        toPosition(),
+      )
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
 fun StellaParser.PatternBindingContext.toAst(): Binding =
-  Binding(pattern = this.pat!!.toAst(), expr = this.rhs!!.toAst())
+  Binding(pattern = pat!!.toAst(), expr = rhs!!.toAst())
 
 fun StellaParser.MatchCaseContext.toAst(): MatchCase =
-  MatchCase(pattern = this.pattern_!!.toAst(), expr = this.expr_!!.toAst())
+  MatchCase(pattern = pattern_!!.toAst(), expr = expr_!!.toAst())
 
 fun StellaParser.PatternContext.toAst(): Pattern =
   when (this) {

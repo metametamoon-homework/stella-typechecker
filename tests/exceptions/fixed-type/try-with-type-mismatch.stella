@@ -1,0 +1,25 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
+    "location": "23:6"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #exceptions, #exception-type-declaration, #natural-literals;
+
+exception type = Nat
+
+fn main(n : Nat) -> Nat {
+   return try {
+     throw(1)
+   } with {
+     false
+   }
+}

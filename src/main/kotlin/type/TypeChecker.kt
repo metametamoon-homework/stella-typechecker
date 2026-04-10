@@ -36,6 +36,8 @@ import ast.Sequence
 import ast.Succ
 import ast.Throw
 import ast.TrueLiteral
+import ast.TryCatch
+import ast.TryWith
 import ast.TupleDotExpression
 import ast.TupleLiteral
 import ast.TypeAscription
@@ -48,9 +50,11 @@ import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
+import kotlin.error
 import type.error.AmbiguousList
 import type.error.AmbiguousPanic
 import type.error.AmbiguousSumType
+import type.error.AmbiguousThrow
 import type.error.AmbiguousVariantType
 import type.error.ContextualTypeError
 import type.error.DuplicateFunctionDeclaration
@@ -177,7 +181,7 @@ class TypeChecker {
 
   // a gigantic when is going to be complex, but there is no work around it
   @Suppress("CyclomaticComplexMethod", "LongMethod")
-  fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualTypeError> {
+  fun checkType(expr: Expr, env: Env, expected: Type): Result<kotlin.Unit, ContextualTypeError> {
     val result: Result<Unit, ContextualTypeError> =
       when (expr) {
         is Succ ->
@@ -190,20 +194,11 @@ class TypeChecker {
           binding {
             val actual = env[expr.name] ?: raise(UndefinedVariable(expr))
             assertExpectedTypeOrReport(actual, expected, expr)
-            Unit
           }
 
-        is TrueLiteral ->
-          binding {
-            assertExpectedTypeOrReport(Bool, expected, expr)
-            Unit
-          }
+        is TrueLiteral -> binding { assertExpectedTypeOrReport(Bool, expected, expr) }
 
-        is FalseLiteral ->
-          binding {
-            assertExpectedTypeOrReport(Bool, expected, expr)
-            Unit
-          }
+        is FalseLiteral -> binding { assertExpectedTypeOrReport(Bool, expected, expr) }
 
         is IfExpression ->
           binding {
@@ -216,14 +211,12 @@ class TypeChecker {
           binding {
             assertExpectedTypeOrReport(Bool, expected, expr)
             checkType(expr.arg, env, Nat).bind()
-            Unit
           }
 
         is Pred ->
           binding {
             assertExpectedTypeOrReport(Nat, expected, expr)
             checkType(expr.arg, env, Nat).bind()
-            Unit
           }
 
         is Abstraction ->
@@ -235,14 +228,9 @@ class TypeChecker {
             checkLambdaParameters(expr, expected.inputTypes)
             val parameterEnv = expr.params.associate { it.name to it.type.toType() }
             checkType(expr.returnExpr, env + parameterEnv, expected.retType).bind()
-            Unit
           }
 
-        is UnitConstant ->
-          binding {
-            assertExpectedTypeOrReport(Unit, expected, expr)
-            Unit
-          }
+        is UnitConstant -> binding { assertExpectedTypeOrReport(UnitType, expected, expr) }
 
         is Application ->
           binding {
@@ -254,14 +242,9 @@ class TypeChecker {
             if (leftType.retType != expected) {
               raise(TypeMismatch(expr, expected, leftType.retType))
             }
-            Unit
           }
 
-        is IntLiteral ->
-          binding {
-            assertExpectedTypeOrReport(Nat, expected, expr)
-            Unit
-          }
+        is IntLiteral -> binding { assertExpectedTypeOrReport(Nat, expected, expr) }
 
         is NatRec ->
           binding {
@@ -269,7 +252,6 @@ class TypeChecker {
             val initType = inferType(expr.init, env).bind()
             val expectedStepType = FunType(listOf(Nat), FunType(listOf(initType), initType))
             checkType(expr.step, env, expectedStepType).bind()
-            Unit
           }
 
         is TupleLiteral -> binding { checkTupleLiteral(expected, expr, env) }
@@ -277,7 +259,6 @@ class TypeChecker {
           binding {
             val actualType = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
-            Unit
           }
 
         is RecordLiteral -> binding { checkRecordLiteralType(expected, expr, env) }
@@ -290,7 +271,6 @@ class TypeChecker {
               raise(UnexpectedFieldAccess(expr, receiverType, expr.label))
             val fieldType = receiverType.fields.getValue(expr.label)
             assertExpectedTypeOrReport(fieldType, expected, expr)
-            Unit
           }
 
         is TypeAscription ->
@@ -298,7 +278,6 @@ class TypeChecker {
             val ascribed = expr.type.toType()
             checkType(expr.expr, env, ascribed).bind()
             assertExpectedTypeOrReport(ascribed, expected, expr)
-            Unit
           }
 
         is LetBinding ->
@@ -325,7 +304,6 @@ class TypeChecker {
             for (element in expr.elements) {
               checkType(element, env, expected.elementType).bind()
             }
-            Unit
           }
 
         is ConsList ->
@@ -339,21 +317,18 @@ class TypeChecker {
           binding {
             val actualType = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
-            Unit
           }
 
         is ListTail ->
           binding {
             val actualType = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
-            Unit
           }
 
         is ListIsEmpty ->
           binding {
             val actualType = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
-            Unit
           }
 
         is Match ->
@@ -367,7 +342,6 @@ class TypeChecker {
             for ((case, patEnv) in expr.cases.zip(patEnvs)) {
               checkType(case.expr, env + patEnv, expected).bind()
             }
-            Unit
           }
 
         is VariantLiteral ->
@@ -376,7 +350,6 @@ class TypeChecker {
             if (expr.label !in expected.fields) raise(UnexpectedVariantLabel(expr, expr.label))
             val fieldType = expected.fields.getValue(expr.label)
             checkType(expr.expr, env, fieldType).bind()
-            Unit
           }
 
         is Fix -> binding { checkType(expr.expr, env, FunType(listOf(expected), expected)).bind() }
@@ -391,8 +364,7 @@ class TypeChecker {
               raise(NotARef(expr.lhs, lhsType))
             }
             checkType(expr.rhs, env, lhsType.inner).bind()
-            assertExpectedTypeOrReport(Unit, expected, expr)
-            Unit
+            assertExpectedTypeOrReport(UnitType, expected, expr)
           }
 
         is Deref ->
@@ -406,12 +378,11 @@ class TypeChecker {
               expected = RefType(expected),
               expr.arg,
             )
-            Unit
           }
 
         is Sequence ->
           binding {
-            checkType(expr.lhs, env, Unit).bind()
+            checkType(expr.lhs, env, UnitType).bind()
             checkType(expr.rhs, env, expected).bind()
           }
 
@@ -425,13 +396,28 @@ class TypeChecker {
 
         is Panic ->
           binding {
-            Unit // ok, the type is as expected
+            // ok, the type is as expected
           }
 
         is Throw -> {
           val excType = exceptionType ?: error("unspecified exception type")
           checkType(expr.arg, env, excType)
         }
+
+        is TryWith ->
+          binding {
+            checkType(expr.tryExpr, env, expected).bind()
+            checkType(expr.fallback, env, expected).bind()
+          }
+
+        is TryCatch ->
+          binding {
+            checkType(expr.tryExpr, env, expected).bind()
+            val patEnvs =
+              matchPatternWithType(expr.pattern, exceptionType ?: error("exception type not set"))
+                .bind()
+            checkType(expr.catch, env + patEnvs, expected).bind()
+          }
       }
     return result.wrapWhileTypechecking(expr, expected)
   }
@@ -440,7 +426,7 @@ class TypeChecker {
     expected: Type,
     expr: RecordLiteral,
     env: Env,
-  ): Unit {
+  ) {
     if (expected !is RecordType) raise(UnexpectedRecord(expr, expected))
     val duplicates = findDuplicateKeys(expr.bindings)
     if (duplicates.isNotEmpty()) raise(DuplicateRecordFields(expr, duplicates))
@@ -454,14 +440,13 @@ class TypeChecker {
     for ((field, expectedFieldType) in expected.fields) {
       checkType(bindingsMap.getValue(field), env, expectedFieldType).bind()
     }
-    return Unit
   }
 
   private fun BindingScope<ContextualTypeError>.checkTupleLiteral(
     expected: Type,
     expr: TupleLiteral,
     env: Env,
-  ): Unit {
+  ) {
     if (expected !is TupleType) raise(UnexpectedTuple(expr, expected))
     if (expr.projections.size != expected.projections.size) {
       raise(UnexpectedTupleLength(expr, expected.projections.size, expr.projections.size))
@@ -469,7 +454,6 @@ class TypeChecker {
     val projectionTypes = expr.projections.map { inferType(it, env).bind() }
     val actualType = TupleType(projectionTypes)
     assertExpectedTypeOrReport(actualType, expected, expr)
-    return Unit
   }
 
   private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, type: Type) {
@@ -614,7 +598,7 @@ class TypeChecker {
             FunType(expr.params.map { it.type.toType() }, returnType)
           }
 
-        is UnitConstant -> binding { Unit }
+        is UnitConstant -> binding { UnitType }
         is TupleLiteral ->
           binding {
             val projectionTypes = expr.projections.map { inferType(it, env).bind() }
@@ -747,7 +731,23 @@ class TypeChecker {
           }
 
         is Panic -> binding { raise(AmbiguousPanic(expr)) }
-        is Throw -> TODO()
+        is Throw -> binding { raise(AmbiguousThrow(expr)) }
+        is TryWith ->
+          binding {
+            val inferred = inferType(expr.tryExpr, env).bind()
+            checkType(expr.fallback, env, inferred).bind()
+            inferred
+          }
+
+        is TryCatch ->
+          binding {
+            val inferred = inferType(expr.tryExpr, env).bind()
+            val patEnvs =
+              matchPatternWithType(expr.pattern, exceptionType ?: error("exception type not set"))
+                .bind()
+            checkType(expr.catch, env + patEnvs, inferred).bind()
+            inferred
+          }
       }
     return result.wrapWhileInferring(expr)
   }
@@ -786,7 +786,7 @@ class TypeChecker {
       is ExceptionTypeDeclaration ->
         binding {
           exceptionType = decl.type.toType()
-          type.Unit
+          type.UnitType
         }
     }
 
@@ -820,7 +820,7 @@ class TypeChecker {
     for (declaration in program.declarations) {
       inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
     }
-    type.Unit
+    type.UnitType
   }
 
   fun inferType(node: Node, env: Env): Result<Type, ContextualTypeError> =
