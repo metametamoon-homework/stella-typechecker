@@ -26,7 +26,7 @@ class TypeCheckerTest {
 
     val lexer = StellaLexer(CharStreams.fromString(sourceText))
     val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-    val result = TypeChecker().inferType(program, emptyEnv)
+    val result = TypeChecker(program.extensions).inferType(program, emptyEnv)
 
     result.mapBoth(
       success = { println("Successfully typed!") },
@@ -40,7 +40,10 @@ class TypeCheckerTest {
       is TestDescription.StopOnFirstError -> {
         val expectedError = programSpec.expectedError
         if (expectedError == null) {
-          assertTrue(result.isOk)
+          assertTrue(
+            result.isOk,
+            "Found typecheck error in a correct program: ${result.getError()}",
+          )
         } else {
           val error = result.getError()
           assertNotNull(error)

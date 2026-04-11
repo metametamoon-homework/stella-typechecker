@@ -1,0 +1,19 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_VARIANT_LABEL",
+    "location": "18:11"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #variants, #structural-subtyping;
+
+fn main(v : <| a : Nat, b : Bool, c : Nat |>) -> <| a : Nat, b : Bool |> {
+   return v
+}

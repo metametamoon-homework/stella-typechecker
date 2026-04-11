@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+
+extend with #records, #structural-subtyping;
+
+
+fn main(n : {a : {x : Nat, y : Nat}, b : Nat}) -> {a : {x : Nat}} {
+   return n
+}

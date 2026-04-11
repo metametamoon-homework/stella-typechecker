@@ -40,7 +40,7 @@ private fun typeCheckFile(sourceFile: File): Int {
   val sourceText = sourceFile.readText()
   val lexer = StellaLexer(CharStreams.fromString(sourceText))
   val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-  val result = TypeChecker().inferType(program, emptyEnv)
+  val result = TypeChecker(program.extensions).inferType(program, emptyEnv)
 
   return result.mapBoth(
     success = {

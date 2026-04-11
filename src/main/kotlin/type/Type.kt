@@ -62,5 +62,3 @@ typealias Env = Map<String, Type>
 val emptyEnv: Env = emptyMap()
 
 val defaultEnv: Env = mapOf("Nat::iszerp" to FunType(listOf(Nat), Bool))
-
-fun Type.isSubtypeOf(other: Type): Boolean = this == other

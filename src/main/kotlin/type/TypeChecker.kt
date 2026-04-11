@@ -95,7 +95,7 @@ import type.error.withContextLayer
 import type.error.withEmptyContext
 
 @Suppress("TooManyFunctions", "LargeClass")
-class TypeChecker {
+class TypeChecker(private val extensions: List<String>) {
   private var exceptionType: Type? = null
 
   private fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTypeError> =
@@ -173,7 +173,9 @@ class TypeChecker {
     }
     for ((parameter, expectedType) in abstraction.params.zip(expectedInputTypes)) {
       val actualType = parameter.type.toType()
-      if (actualType != expectedType) {
+      if ("#structural-subtyping" in extensions) {
+        assertIsSubtypeOf(expectedType, actualType, abstraction)
+      } else if (actualType != expectedType) {
         raise(UnexpectedLambdaParameterType(parameter, expectedType))
       }
     }
@@ -239,9 +241,7 @@ class TypeChecker {
               raise(NotAFunction(expr.func))
             }
             checkFunctionArgTypes(expr, env, leftType.inputTypes)
-            if (leftType.retType != expected) {
-              raise(TypeMismatch(expr, expected, leftType.retType))
-            }
+            assertExpectedTypeOrReport(leftType.retType, expected, expr)
           }
 
         is IntLiteral -> binding { assertExpectedTypeOrReport(Nat, expected, expr) }
@@ -478,13 +478,76 @@ class TypeChecker {
   private fun BindingScope<ContextualTypeError>.raise(e: TypeError): Nothing =
     Err(e.withEmptyContext()).bind()
 
+  private fun BindingScope<ContextualTypeError>.assertIsSubtypeOf(
+    subType: Type,
+    superType: Type,
+    expr: Expr,
+  ) {
+    when (superType) {
+      is RecordType -> {
+        if (subType !is RecordType) raise(NotARecord(expr))
+        assertRecordSubtyping(subType, superType, expr)
+      }
+
+      is VariantType -> {
+        if (subType !is VariantType) raise(TypeMismatch(expr, superType, subType))
+        assertVariantSubtyping(subType, superType, expr)
+      }
+
+      is FunType -> {
+        if (subType !is FunType) raise(TypeMismatch(expr, superType, subType))
+        if (subType.inputTypes.size != superType.inputTypes.size)
+          raise(TypeMismatch(expr, superType, subType))
+        for ((expectedParam, actualParam) in superType.inputTypes.zip(subType.inputTypes)) {
+          assertIsSubtypeOf(expectedParam, actualParam, expr)
+        }
+        assertIsSubtypeOf(subType.retType, superType.retType, expr)
+      }
+
+      else -> if (subType != superType) raise(TypeMismatch(expr, superType, subType))
+    }
+  }
+
+  private fun BindingScope<ContextualTypeError>.assertVariantSubtyping(
+    subType: VariantType,
+    superType: VariantType,
+    expr: Expr,
+  ) {
+    val extraLabels = subType.fields.keys - superType.fields.keys
+    if (extraLabels.isNotEmpty()) raise(UnexpectedVariantLabel(expr, extraLabels.first()))
+    for ((label, subTypeField) in subType.fields) {
+      val superTypeField = superType.fields[label] ?: unreachable()
+      assertIsSubtypeOf(subTypeField, superTypeField, expr)
+    }
+  }
+
+  private fun BindingScope<ContextualTypeError>.assertRecordSubtyping(
+    subType: RecordType,
+    superType: RecordType,
+    expr: Expr,
+  ) {
+    val superTypeKeys = superType.fields.keys
+    val subTypeKeys = subType.fields.keys
+    val missing = superTypeKeys - subTypeKeys
+    if (missing.isNotEmpty()) raise(MissingRecordFields(expr, missing))
+    for ((field, fieldType) in superType.fields) {
+      val correspondingActualType = subType.fields[field] ?: unreachable()
+      assertIsSubtypeOf(correspondingActualType, fieldType, expr)
+    }
+  }
+
   private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
     actualType: type.Type,
     expected: type.Type,
     expr: Expr,
   ) {
-    if (!actualType.isSubtypeOf(expected)) {
-      raise(TypeMismatch(expr, expected, actualType))
+    if ("#structural-subtyping" in extensions) {
+      assertIsSubtypeOf(actualType, expected, expr)
+    } else {
+      if (actualType != expected) {
+        // TODO deep check for record type
+        raise(TypeMismatch(expr, expected, actualType))
+      }
     }
   }
 
@@ -534,7 +597,7 @@ class TypeChecker {
 
   // a gigantic when is going to be complex
   @Suppress("CyclomaticComplexMethod", "LongMethod")
-  fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
+  private fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
     val result: Result<Type, ContextualTypeError> =
       when (expr) {
         is Succ ->

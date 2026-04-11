@@ -16,3 +16,5 @@ fun ast.Type.toType(): Type =
 
     is ast.Type.Ref -> RefType(inner.toType())
   }
+
+fun unreachable(): Nothing = error("unreachable")
