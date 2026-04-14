@@ -1,0 +1,25 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
+    "location": "20:10"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with
+  #top-type,
+  #type-cast;
+
+fn f(x : Top) -> Nat {
+  return x cast as Bool
+}
+
+fn main(n : Nat) -> Nat {
+  return f(n)
+}

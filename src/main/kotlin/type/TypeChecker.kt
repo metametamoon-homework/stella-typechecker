@@ -229,6 +229,9 @@ class TypeChecker(private val extensions: List<String>) {
         is Abstraction ->
           binding {
             expr.params.forEach { checkTypeDuplicates(it.type) }
+            if (expected is Top) {
+              return@binding // a-ok
+            }
             if (expected !is FunType) {
               raise(UnexpectedLambda(expr, expected))
             }
@@ -490,6 +493,7 @@ class TypeChecker(private val extensions: List<String>) {
     superType: Type,
     expr: Expr,
   ) {
+    if (subType is Bot) return
     when (superType) {
       is Top -> {
         // no asserts
@@ -825,7 +829,11 @@ class TypeChecker(private val extensions: List<String>) {
             inferred
           }
 
-        is CastAs -> TODO()
+        is CastAs ->
+          binding {
+            inferExprType(expr.expr, env).bind()
+            expr.type.toType()
+          }
       }
     return result.wrapWhileInferring(expr)
   }
