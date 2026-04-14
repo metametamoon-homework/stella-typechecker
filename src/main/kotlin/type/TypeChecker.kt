@@ -488,6 +488,7 @@ class TypeChecker(private val extensions: List<String>) {
   private fun BindingScope<ContextualTypeError>.raise(e: TypeError): Nothing =
     Err(e.withEmptyContext()).bind()
 
+  @Suppress("CyclomaticComplexMethod")
   private fun BindingScope<ContextualTypeError>.assertIsSubtypeOf(
     subType: Type,
     superType: Type,
@@ -506,6 +507,16 @@ class TypeChecker(private val extensions: List<String>) {
       is VariantType -> {
         if (subType !is VariantType) raise(TypeMismatch(expr, superType, subType))
         assertVariantSubtyping(subType, superType, expr)
+      }
+      is ListType -> {
+        if (subType !is ListType) raise(TypeMismatch(expr, superType, subType))
+        assertIsSubtypeOf(subType.elementType, superType.elementType, expr)
+      }
+
+      is SumType -> {
+        if (subType !is SumType) raise(TypeMismatch(expr, superType, subType))
+        assertIsSubtypeOf(subType.left, superType.left, expr)
+        assertIsSubtypeOf(subType.right, superType.right, expr)
       }
 
       is FunType -> {
@@ -611,6 +622,8 @@ class TypeChecker(private val extensions: List<String>) {
       is ast.Type.Top -> {}
     }
   }
+
+  private val ambiguousAsBot = "#ambiguous-type-as-bottom"
 
   // a gigantic when is going to be complex
   @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -731,7 +744,13 @@ class TypeChecker(private val extensions: List<String>) {
         is Pattern.Variable -> error("unreachable")
         is ListLiteral ->
           binding {
-            if (expr.elements.isEmpty()) raise(AmbiguousList(expr))
+            if (expr.elements.isEmpty()) {
+              if (ambiguousAsBot in extensions) {
+                return@binding ListType(Bot)
+              } else {
+                raise(AmbiguousList(expr))
+              }
+            }
             val firstType = inferExprType(expr.elements.first(), env).bind()
             for (element in expr.elements.drop(1)) {
               checkType(element, env, firstType).bind()
@@ -768,8 +787,25 @@ class TypeChecker(private val extensions: List<String>) {
             Bool
           }
 
-        is Inl -> Err(AmbiguousSumType(expr).withEmptyContext())
-        is Inr -> Err(AmbiguousSumType(expr).withEmptyContext())
+        is Inl ->
+          binding {
+            if (ambiguousAsBot in extensions) {
+              val inferredType = inferType(expr.expr, env).bind()
+              SumType(inferredType, Bot)
+            } else {
+              raise(AmbiguousSumType(expr))
+            }
+          }
+        is Inr ->
+          binding {
+            if (ambiguousAsBot in extensions) {
+              val inferredType = inferType(expr.expr, env).bind()
+              SumType(Bot, inferredType)
+            } else {
+              raise(AmbiguousSumType(expr))
+            }
+          }
+
         is Match ->
           binding {
             if (expr.cases.isEmpty()) raise(IllegalEmptyMatching(expr))
