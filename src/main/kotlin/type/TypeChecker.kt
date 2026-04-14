@@ -846,9 +846,26 @@ class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inl -> error("unreachable")
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
-        is Assign -> TODO()
-        is Deref -> TODO()
-        is Sequence -> TODO()
+        is Assign ->
+          binding {
+            val lhsType = inferExprType(expr.lhs, env).bind()
+            if (lhsType !is RefType) raise(NotARef(expr.lhs, lhsType))
+            checkType(expr.rhs, env, lhsType.inner).bind()
+            UnitType
+          }
+
+        is Deref ->
+          binding {
+            val argType = inferExprType(expr.arg, env).bind()
+            if (argType !is RefType) raise(NotARef(expr.arg, argType))
+            argType.inner
+          }
+
+        is Sequence ->
+          binding {
+            checkType(expr.lhs, env, UnitType).bind()
+            inferExprType(expr.rhs, env).bind()
+          }
         is NewRef ->
           binding {
             val inner = inferType(expr.initValue, env).bind()
@@ -880,7 +897,14 @@ class TypeChecker(private val extensions: List<String>) {
             expr.type.toType()
           }
 
-        is TryCastAs -> TODO()
+        is TryCastAs ->
+          binding {
+            inferExprType(expr.scrutinee, env).bind()
+            val patEnv = matchPatternWithType(expr.successPattern, expr.type.toType()).bind()
+            val successType = inferExprType(expr.successBranch, env + patEnv).bind()
+            checkType(expr.failureBranch, env, successType).bind()
+            successType
+          }
       }
     return result.wrapWhileInferring(expr)
   }

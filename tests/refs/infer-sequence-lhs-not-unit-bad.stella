@@ -1,0 +1,18 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
+    "location": "17:21"
+  }
+}
+TEST_END
+*/
+
+language core;
+extend with #unit-type, #references, #let-bindings, #sequencing;
+
+fn main(n : Nat) -> Nat {
+    return let x = (succ(n); n) in x
+}

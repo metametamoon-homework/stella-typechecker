@@ -1,0 +1,15 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+extend with #try-cast-as, #let-bindings;
+
+fn main(n : Nat) -> Bool {
+    return let x = try { n } cast as Bool { b => b } with { false } in x
+}
