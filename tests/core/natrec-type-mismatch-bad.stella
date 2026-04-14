@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
-    "location": "18:14"
+    "location": "16:12"
   }
 }
 TEST_END
@@ -12,8 +12,6 @@ TEST_END
 
 language core;
 
-extend with #tuples;
-
-fn main(n : Nat) -> {Nat, Bool} {
-  return {n, n}
+fn main(n : Nat) -> Bool {
+    return Nat::rec(n, 0, fn(i : Nat) { return fn(acc : Nat) { return succ(acc) } })
 }

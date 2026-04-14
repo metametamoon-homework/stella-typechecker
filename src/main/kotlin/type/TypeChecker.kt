@@ -261,6 +261,7 @@ class TypeChecker(private val extensions: List<String>) {
             val initType = inferType(expr.init, env).bind()
             val expectedStepType = FunType(listOf(Nat), FunType(listOf(initType), initType))
             checkType(expr.step, env, expectedStepType).bind()
+            assertExpectedTypeOrReport(initType, expected, expr)
           }
 
         is TupleLiteral -> binding { checkTupleLiteral(expected, expr, env) }
@@ -455,7 +456,8 @@ class TypeChecker(private val extensions: List<String>) {
     val missing = expectedKeys - actualKeys
     val extra = actualKeys - expectedKeys
     if (missing.isNotEmpty()) raise(MissingRecordFields(expr, missing))
-    if (extra.isNotEmpty()) raise(UnexpectedRecordFields(expr, extra))
+    if (extra.isNotEmpty() && "#structural-subtyping" !in extensions)
+      raise(UnexpectedRecordFields(expr, extra))
     for ((field, expectedFieldType) in expected.fields) {
       checkType(bindingsMap.getValue(field), env, expectedFieldType).bind()
     }
@@ -470,9 +472,9 @@ class TypeChecker(private val extensions: List<String>) {
     if (expr.projections.size != expected.projections.size) {
       raise(UnexpectedTupleLength(expr, expected.projections.size, expr.projections.size))
     }
-    val projectionTypes = expr.projections.map { inferType(it, env).bind() }
-    val actualType = TupleType(projectionTypes)
-    assertExpectedTypeOrReport(actualType, expected, expr)
+    for ((element, expectedElementType) in expr.projections.zip(expected.projections)) {
+      checkType(element, env, expectedElementType).bind()
+    }
   }
 
   private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, type: Type) {
