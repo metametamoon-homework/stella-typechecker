@@ -119,3 +119,12 @@ data class TryCatch(
 ) : Expr
 
 data class CastAs(val expr: Expr, val type: ast.Type, override val position: Position) : Expr
+
+data class TryCastAs(
+  val scrutinee: Expr,
+  val type: ast.Type,
+  val successPattern: Pattern,
+  val successBranch: Expr,
+  val failureBranch: Expr,
+  override val position: Position,
+) : Expr

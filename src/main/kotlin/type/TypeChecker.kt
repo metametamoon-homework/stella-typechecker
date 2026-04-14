@@ -37,6 +37,7 @@ import ast.Sequence
 import ast.Succ
 import ast.Throw
 import ast.TrueLiteral
+import ast.TryCastAs
 import ast.TryCatch
 import ast.TryWith
 import ast.TupleDotExpression
@@ -427,6 +428,14 @@ class TypeChecker(private val extensions: List<String>) {
           binding {
             val _ = inferExprType(expr.expr, env).bind()
             assertExpectedTypeOrReport(expr.type.toType(), expected, expr)
+          }
+
+        is TryCastAs ->
+          binding {
+            val _ = inferExprType(expr.scrutinee, env).bind()
+            val envUpdated = matchPatternWithType(expr.successPattern, expr.type.toType()).bind()
+            checkType(expr.successBranch, env + envUpdated, expected).bind()
+            checkType(expr.failureBranch, env, expected).bind()
           }
       }
     return result.wrapWhileTypechecking(expr, expected)
@@ -870,6 +879,8 @@ class TypeChecker(private val extensions: List<String>) {
             inferExprType(expr.expr, env).bind()
             expr.type.toType()
           }
+
+        is TryCastAs -> TODO()
       }
     return result.wrapWhileInferring(expr)
   }

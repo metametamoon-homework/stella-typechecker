@@ -12,7 +12,7 @@ TEST_END
 
 language core;
 
-extend with #records, #structural-subtyping;
+extend with #records, #structural-subtyping, #multiparameter-functions;
 
 fn some(
   f : fn({a : Nat}) -> {a : Nat},

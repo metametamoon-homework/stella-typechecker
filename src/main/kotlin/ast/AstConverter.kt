@@ -143,6 +143,15 @@ fun StellaParser.ExprContext.toAst(): Expr =
       )
     is StellaParser.TypeCastContext ->
       CastAs(this.expr_!!.toAst(), this.type_!!.toAst(), toPosition())
+    is StellaParser.TryCastAsContext ->
+      TryCastAs(
+        this.tryExpr!!.toAst(),
+        this.type_!!.toAst(),
+        this.pattern_!!.toAst(),
+        this.expr_!!.toAst(),
+        this.fallbackExpr!!.toAst(),
+        toPosition(),
+      )
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
