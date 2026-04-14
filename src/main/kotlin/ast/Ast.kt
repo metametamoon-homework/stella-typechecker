@@ -60,6 +60,10 @@ sealed interface Type : Node {
 
   data class Variant(val fields: List<VariantFieldType>, override val position: Position? = null) :
     Type
+
+  data class Top(override val position: Position? = null) : Type
+
+  data class Bottom(override val position: Position? = null) : Type
 }
 
 data class FunctionDeclaration(

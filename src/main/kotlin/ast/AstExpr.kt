@@ -122,3 +122,5 @@ data class TryCatch(
   val catch: Expr,
   override val position: Position?,
 ) : Expr
+
+data class CastAs(val expr: Expr, val type: ast.Type, override val position: Position?) : Expr

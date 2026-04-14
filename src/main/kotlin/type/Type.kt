@@ -16,6 +16,14 @@ data object Bool : Type {
   override fun prettyPrint(): String = "Bool"
 }
 
+data object Top : Type {
+  override fun prettyPrint(): String = "Top"
+}
+
+data object Bot : Type {
+  override fun prettyPrint(): String = "Bot"
+}
+
 data class FunType(val inputTypes: List<Type>, val retType: Type) : Type {
   override fun prettyPrint(): String {
     val params = inputTypes.joinToString(", ") { it.prettyPrint() }

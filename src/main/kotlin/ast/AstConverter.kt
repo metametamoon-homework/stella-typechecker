@@ -141,6 +141,8 @@ fun StellaParser.ExprContext.toAst(): Expr =
         this.fallbackExpr!!.toAst(),
         toPosition(),
       )
+    is StellaParser.TypeCastContext ->
+      CastAs(this.expr_!!.toAst(), this.type_!!.toAst(), toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -167,6 +169,7 @@ fun StellaParser.PatternContext.toAst(): Pattern =
     else -> error("Unsupported pattern: ${this::class.simpleName}")
   }
 
+@Suppress("CyclomaticComplexMethod")
 fun StellaParser.StellatypeContext.toAst(): Type =
   when (this) {
     is StellaParser.TypeNatContext -> Type.Nat
@@ -195,5 +198,7 @@ fun StellaParser.StellatypeContext.toAst(): Type =
       )
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
     is StellaParser.TypeRefContext -> Type.Ref(this.type_!!.toAst(), position = toPosition())
+    is StellaParser.TypeTopContext -> Type.Top(position = toPosition())
+    is StellaParser.TypeBottomContext -> Type.Bottom(position = toPosition())
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

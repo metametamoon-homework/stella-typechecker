@@ -4,6 +4,7 @@ import ast.Abstraction
 import ast.Application
 import ast.Assign
 import ast.Binding
+import ast.CastAs
 import ast.ConsList
 import ast.Declaration
 import ast.Deref
@@ -183,7 +184,11 @@ class TypeChecker(private val extensions: List<String>) {
 
   // a gigantic when is going to be complex, but there is no work around it
   @Suppress("CyclomaticComplexMethod", "LongMethod")
-  fun checkType(expr: Expr, env: Env, expected: Type): Result<kotlin.Unit, ContextualTypeError> {
+  private fun checkType(
+    expr: Expr,
+    env: Env,
+    expected: Type,
+  ): Result<kotlin.Unit, ContextualTypeError> {
     val result: Result<Unit, ContextualTypeError> =
       when (expr) {
         is Succ ->
@@ -418,6 +423,12 @@ class TypeChecker(private val extensions: List<String>) {
                 .bind()
             checkType(expr.catch, env + patEnvs, expected).bind()
           }
+
+        is CastAs ->
+          binding {
+            val _ = inferExprType(expr.expr, env).bind()
+            assertExpectedTypeOrReport(expr.type.toType(), expected, expr)
+          }
       }
     return result.wrapWhileTypechecking(expr, expected)
   }
@@ -484,6 +495,9 @@ class TypeChecker(private val extensions: List<String>) {
     expr: Expr,
   ) {
     when (superType) {
+      is Top -> {
+        // no asserts
+      }
       is RecordType -> {
         if (subType !is RecordType) raise(NotARecord(expr))
         assertRecordSubtyping(subType, superType, expr)
@@ -592,6 +606,9 @@ class TypeChecker(private val extensions: List<String>) {
       ast.Type.Unit -> {}
 
       is ast.Type.Ref -> checkTypeDuplicates(type.inner)
+
+      is ast.Type.Bottom -> {}
+      is ast.Type.Top -> {}
     }
   }
 
@@ -811,6 +828,8 @@ class TypeChecker(private val extensions: List<String>) {
             checkType(expr.catch, env + patEnvs, inferred).bind()
             inferred
           }
+
+        is CastAs -> TODO()
       }
     return result.wrapWhileInferring(expr)
   }
