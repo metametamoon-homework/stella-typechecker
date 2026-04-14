@@ -1,7 +1,7 @@
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-@Serializable data class ExpectedError(val code: String, val location: String?)
+@Serializable data class ExpectedError(val code: String, val location: String)
 
 @Serializable
 sealed interface TestDescription {

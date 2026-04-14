@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_INCORRECT_ARITY_OF_MAIN",
-    "location": null
+    "location": "17:1"
   }
 }
 TEST_END

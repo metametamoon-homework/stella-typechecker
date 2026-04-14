@@ -50,11 +50,9 @@ class TypeCheckerTest {
           assertEquals(expectedError.code, error.coreError.errorId)
           val errorPosition = error.coreError.errorNode.position.begin
           val expectedErrorLocation = expectedError.location
-          if (expectedErrorLocation != null) {
-            assertNotNull(errorPosition, "Error position is null")
-            val oneBasedColumn = errorPosition.column + 1
-            assertEquals("${errorPosition.row}:$oneBasedColumn", expectedErrorLocation)
-          }
+          assertNotNull(errorPosition, "Error position is null")
+          val oneBasedColumn = errorPosition.column + 1
+          assertEquals("${errorPosition.row}:$oneBasedColumn", expectedErrorLocation)
         }
       }
     }

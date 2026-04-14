@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_UNEXPECTED_NUMBER_OF_PARAMETERS_IN_LAMBDA",
-    "location": null
+    "location": "18:10"
   }
 }
 TEST_END

@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_UNEXPECTED_PATTERN_FOR_TYPE",
-    "location": null
+    "location": "22:7"
   }
 }
 TEST_END

@@ -4,7 +4,7 @@ TEST_BEGIN
   "type": "stop-on-first-error",
   "expected-error": {
     "code": "ERROR_INCORRECT_NUMBER_OF_ARGUMENTS",
-    "location": null
+    "location": "22:10"
   }
 }
 TEST_END
