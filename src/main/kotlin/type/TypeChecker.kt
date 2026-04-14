@@ -379,11 +379,7 @@ class TypeChecker(private val extensions: List<String>) {
             if (inferredType !is RefType) {
               raise(NotARef(expr, inferredType))
             }
-            assertExpectedTypeOrReport(
-              actualType = inferredType,
-              expected = RefType(expected),
-              expr.arg,
-            )
+            assertExpectedTypeOrReport(inferredType.inner, expected, expr)
           }
 
         is Sequence ->
@@ -522,6 +518,12 @@ class TypeChecker(private val extensions: List<String>) {
       is ListType -> {
         if (subType !is ListType) raise(TypeMismatch(expr, superType, subType))
         assertIsSubtypeOf(subType.elementType, superType.elementType, expr)
+      }
+
+      is RefType -> {
+        if (subType !is RefType) raise(TypeMismatch(expr, superType, subType))
+        assertIsSubtypeOf(subType.inner, superType.inner, expr)
+        assertIsSubtypeOf(superType.inner, subType.inner, expr)
       }
 
       is SumType -> {

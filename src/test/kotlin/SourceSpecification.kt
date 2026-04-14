@@ -10,6 +10,3 @@ sealed interface TestDescription {
   data class StopOnFirstError(@SerialName("expected-error") val expectedError: ExpectedError?) :
     TestDescription
 }
-
-@Serializable
-data class SourceSpecification(val source: String? = null, val testDescription: TestDescription)
