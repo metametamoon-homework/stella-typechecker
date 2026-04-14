@@ -318,11 +318,7 @@ class TypeChecker(private val extensions: List<String>) {
             checkType(expr.tail, env, expected).bind()
           }
 
-        is ListHead ->
-          binding {
-            val actualType = inferExprType(expr, env).bind()
-            assertExpectedTypeOrReport(actualType, expected, expr)
-          }
+        is ListHead -> binding { checkType(expr.list, env, ListType(expected)).bind() }
 
         is ListTail ->
           binding {

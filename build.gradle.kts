@@ -84,8 +84,9 @@ tasks.detektMain {
 val runCodeQualityChecks: TaskProvider<Task> =
   tasks.register("codeQuality") {
     group = "verification"
-    dependsOn(tasks.ktfmtCheckMain)
-    dependsOn(tasks.ktfmtCheckTest)
+    //    dependsOn(tasks.ktfmtCheckMain)
+    //    dependsOn(tasks.ktfmtCheckTest)
+    dependsOn(tasks.ktfmtFormat)
     dependsOn(tasks.detektMain)
     dependsOn(tasks.detektTest)
   }

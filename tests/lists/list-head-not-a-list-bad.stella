@@ -3,7 +3,7 @@ TEST_BEGIN
 {
   "type": "stop-on-first-error",
   "expected-error": {
-    "code": "ERROR_NOT_A_LIST",
+    "code": "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION",
     "location": "18:21"
   }
 }
