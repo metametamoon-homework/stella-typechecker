@@ -5,9 +5,9 @@ package ast
 import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.ParserRuleContext
 
-private fun ParserRuleContext.toPosition(): Position? {
-  val start = start ?: return null
-  val stop = stop ?: return null
+private fun ParserRuleContext.toPosition(): Position {
+  val start = start ?: error("")
+  val stop = stop ?: error("")
   return Position(
     begin = Point(column = start.charPositionInLine, row = start.line),
     end = Point(column = stop.charPositionInLine + (stop.text?.length ?: 1), row = stop.line),
@@ -39,7 +39,7 @@ fun StellaParser.DeclContext.toAst(): Declaration =
         position = toPosition(),
       )
     is StellaParser.DeclExceptionTypeContext ->
-      ExceptionTypeDeclaration(this.exceptionType!!.toAst())
+      ExceptionTypeDeclaration(this.exceptionType!!.toAst(), toPosition())
     else -> error("Unsupported declaration: ${this::class.simpleName}")
   }
 
@@ -172,18 +172,18 @@ fun StellaParser.PatternContext.toAst(): Pattern =
 @Suppress("CyclomaticComplexMethod")
 fun StellaParser.StellatypeContext.toAst(): Type =
   when (this) {
-    is StellaParser.TypeNatContext -> Type.Nat
-    is StellaParser.TypeBoolContext -> Type.Bool
+    is StellaParser.TypeNatContext -> Type.Nat(toPosition())
+    is StellaParser.TypeBoolContext -> Type.Bool(toPosition())
     is StellaParser.TypeFunContext ->
       Type.Fun(
         inputTypes = this.paramTypes.map { it.toAst() },
         returnType = this.returnType!!.toAst(),
         position = toPosition(),
       )
-    is StellaParser.TypeUnitContext -> Type.Unit
-    is StellaParser.TypeTupleContext -> Type.Tuple(this.types.map { it.toAst() })
+    is StellaParser.TypeUnitContext -> Type.Unit(toPosition())
+    is StellaParser.TypeTupleContext -> Type.Tuple(this.types.map { it.toAst() }, toPosition())
     is StellaParser.TypeRecordContext ->
-      Type.Record(this.fieldTypes.map { it.label?.text!! to it.type_!!.toAst() })
+      Type.Record(this.fieldTypes.map { it.label?.text!! to it.type_!!.toAst() }, toPosition())
     is StellaParser.TypeSumContext ->
       Type.Sum(left = this.left!!.toAst(), right = this.right!!.toAst(), position = toPosition())
     is StellaParser.TypeListContext ->

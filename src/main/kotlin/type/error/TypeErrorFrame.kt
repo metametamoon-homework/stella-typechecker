@@ -19,9 +19,7 @@ fun ContextualTypeError.prettyPrintError(path: String): String = buildString {
   appendLine("e [${coreError.errorId}]")
   append("at file://$path:")
   val position = coreError.errorNode.position
-  if (position != null) {
-    append("${position.begin.row}:${position.begin.column + 1}:")
-  }
+  append("${position.begin.row}:${position.begin.column + 1}:")
   appendLine()
   appendLine(coreError.userFacingErrorDescription)
   for (frame in context) {
@@ -45,9 +43,5 @@ fun ContextualTypeError.prettyPrintError(path: String): String = buildString {
 
 private fun Node.getStringRangeOrNothing(): String {
   val pos = position
-  return if (pos != null) {
-    "(${pos.begin.row}:${pos.begin.column + 1}-${pos.end.row}:${pos.end.column + 1})"
-  } else {
-    ""
-  }
+  return "(${pos.begin.row}:${pos.begin.column + 1}-${pos.end.row}:${pos.end.column + 1})"
 }

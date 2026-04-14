@@ -597,9 +597,9 @@ class TypeChecker(private val extensions: List<String>) {
       }
 
       is ast.Type.ListType -> checkTypeDuplicates(type.elementType)
-      ast.Type.Bool,
-      ast.Type.Nat,
-      ast.Type.Unit -> {}
+      is ast.Type.Bool,
+      is ast.Type.Nat,
+      is ast.Type.Unit -> {}
 
       is ast.Type.Ref -> checkTypeDuplicates(type.inner)
 

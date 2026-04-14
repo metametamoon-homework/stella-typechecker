@@ -7,7 +7,6 @@ sealed interface TypeError {
     get() = javaClass.simpleName
 
   val userFacingErrorDescription: String
-  //    get() = "NOT YET DOCUMENTED (${javaClass.simpleName})"
 
   val errorNode: Node
 }
