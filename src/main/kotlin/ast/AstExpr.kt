@@ -85,6 +85,9 @@ sealed interface Pattern : Expr {
 
   data class Variant(val label: String, val inner: Pattern?, override val position: Position) :
     Pattern
+
+  data class CastAs(val inner: Pattern, val type: ast.Type, override val position: Position) :
+    Pattern
 }
 
 data class Binding(val pattern: Pattern, val expr: Expr)

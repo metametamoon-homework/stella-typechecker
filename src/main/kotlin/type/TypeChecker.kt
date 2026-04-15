@@ -129,6 +129,8 @@ class TypeChecker(private val extensions: List<String>) {
             emptyMap()
           }
         }
+
+      is Pattern.CastAs -> matchPatternWithType(pattern.inner, pattern.type.toType())
     }
 
   private fun BindingScope<ContextualTypeError>.resolveBindings(
@@ -366,6 +368,7 @@ class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inl -> error("unreachable")
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
+        is Pattern.CastAs -> error("unreachable")
         is Assign ->
           binding {
             val lhsType = inferExprType(expr.lhs, env).bind()
@@ -862,6 +865,7 @@ class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inl -> error("unreachable")
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
+        is Pattern.CastAs -> error("unreachable")
         is Assign ->
           binding {
             val lhsType = inferExprType(expr.lhs, env).bind()

@@ -177,6 +177,12 @@ fun StellaParser.PatternContext.toAst(): Pattern =
         inner = this.pattern_?.toAst(),
         position = toPosition(),
       )
+    is StellaParser.PatternCastAsContext ->
+      Pattern.CastAs(
+        inner = this.pattern_!!.toAst(),
+        type = this.type_!!.toAst(),
+        position = toPosition(),
+      )
     else -> error("Unsupported pattern: ${this::class.simpleName}")
   }
 
