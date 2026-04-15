@@ -9,6 +9,7 @@ import ast.ConsList
 import ast.Declaration
 import ast.Deref
 import ast.ExceptionTypeDeclaration
+import ast.ExceptionVariantDeclaration
 import ast.Expr
 import ast.FalseLiteral
 import ast.Fix
@@ -60,14 +61,17 @@ import type.error.AmbiguousReferenceType
 import type.error.AmbiguousSumType
 import type.error.AmbiguousThrow
 import type.error.AmbiguousVariantType
+import type.error.ConflictingExceptionDeclarations
 import type.error.ContextualTypeError
 import type.error.DuplicateExceptionType
+import type.error.DuplicateExceptionVariant
 import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
 import type.error.DuplicateVariantTypeFields
 import type.error.IllegalEmptyMatching
 import type.error.IllegalLocalExceptionType
+import type.error.IllegalLocalOpenVariantException
 import type.error.IncorrectArityOfMain
 import type.error.IncorrectNumberOfArguments
 import type.error.MissingMain
@@ -957,6 +961,9 @@ class TypeChecker(private val extensions: List<String>) {
           val localExcDecl =
             decl.localDeclarations.filterIsInstance<ExceptionTypeDeclaration>().firstOrNull()
           if (localExcDecl != null) raise(IllegalLocalExceptionType(localExcDecl))
+          val localVariantDecl =
+            decl.localDeclarations.filterIsInstance<ExceptionVariantDeclaration>().firstOrNull()
+          if (localVariantDecl != null) raise(IllegalLocalOpenVariantException(localVariantDecl))
           decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
           checkTypeDuplicates(decl.returnType)
           val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
@@ -969,7 +976,12 @@ class TypeChecker(private val extensions: List<String>) {
         }
       is ExceptionTypeDeclaration ->
         binding {
-          exceptionType = decl.type.toType()
+          // work happens at program inference
+          type.UnitType
+        }
+      is ExceptionVariantDeclaration ->
+        binding {
+          // work happens at program inference
           type.UnitType
         }
     }
@@ -1002,10 +1014,24 @@ class TypeChecker(private val extensions: List<String>) {
       }
     val currentEnv = env + deltaEnv
     var seenExceptionTypeDecl = false
+    val variantLabels = mutableListOf<Pair<String, type.Type>>()
+    val seenVariantLabels = mutableSetOf<String>()
     for (declaration in program.declarations) {
-      if (declaration is ExceptionTypeDeclaration) {
-        if (seenExceptionTypeDecl) raise(DuplicateExceptionType(declaration))
-        seenExceptionTypeDecl = true
+      when (declaration) {
+        is ExceptionTypeDeclaration -> {
+          if (variantLabels.isNotEmpty()) raise(ConflictingExceptionDeclarations(declaration))
+          if (seenExceptionTypeDecl) raise(DuplicateExceptionType(declaration))
+          seenExceptionTypeDecl = true
+          exceptionType = declaration.type.toType()
+        }
+        is ExceptionVariantDeclaration -> {
+          if (seenExceptionTypeDecl) raise(ConflictingExceptionDeclarations(declaration))
+          if (!seenVariantLabels.add(declaration.label))
+            raise(DuplicateExceptionVariant(declaration, declaration.label))
+          variantLabels.add(declaration.label to declaration.type.toType())
+          exceptionType = VariantType(variantLabels.toMap())
+        }
+        else -> {}
       }
       inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
     }

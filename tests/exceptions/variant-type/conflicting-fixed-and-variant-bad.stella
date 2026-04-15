@@ -1,0 +1,21 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_CONFLICTING_EXCEPTION_DECLARATIONS",
+    "location": "17:1"
+  }
+}
+TEST_END
+*/
+
+language core;
+extend with #exceptions, #open-variant-exceptions, #variants;
+
+exception type = Nat
+exception variant error_code : Nat
+
+fn main(n : Nat) -> Bool {
+    return throw(n)
+}

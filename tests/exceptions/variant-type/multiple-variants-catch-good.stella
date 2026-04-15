@@ -1,0 +1,18 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+extend with #exceptions, #open-variant-exceptions, #variants;
+
+exception variant error_code : Nat
+exception variant error_msg : Bool
+
+fn main(n : Nat) -> Nat {
+    return try { n } catch { <| error_code = code |> => code | <| error_msg = _ |> => 0 }
+}

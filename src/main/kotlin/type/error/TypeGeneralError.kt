@@ -314,6 +314,25 @@ data class IllegalLocalExceptionType(override val errorNode: Node) : TypeError {
     get() = "exception type declaration is not allowed in a local scope"
 }
 
+data class DuplicateExceptionVariant(override val errorNode: Node, private val label: String) :
+  TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_EXCEPTION_VARIANT"
+  override val userFacingErrorDescription: String
+    get() = "duplicate exception variant label '$label'"
+}
+
+data class ConflictingExceptionDeclarations(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_CONFLICTING_EXCEPTION_DECLARATIONS"
+  override val userFacingErrorDescription: String
+    get() = "cannot mix 'exception type' and 'exception variant' declarations"
+}
+
+data class IllegalLocalOpenVariantException(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_ILLEGAL_LOCAL_OPEN_VARIANT_EXCEPTION"
+  override val userFacingErrorDescription: String
+    get() = "exception variant declaration is not allowed in a local scope"
+}
+
 data class AmbiguousPanic(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_PANIC_TYPE"
   override val userFacingErrorDescription: String

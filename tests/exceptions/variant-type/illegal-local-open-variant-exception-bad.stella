@@ -3,7 +3,7 @@ TEST_BEGIN
 {
   "type": "stop-on-first-error",
   "expected-error": {
-    "code": "ERROR_ILLEGAL_LOCAL_EXCEPTION_TYPE",
+    "code": "ERROR_ILLEGAL_LOCAL_OPEN_VARIANT_EXCEPTION",
     "location": "17:5"
   }
 }
@@ -11,10 +11,10 @@ TEST_END
 */
 
 language core;
-extend with #exception-type-declaration, #nested-function-declarations;
+extend with #exceptions, #open-variant-exceptions, #variants, #nested-function-declaration;
 
 fn helper(n : Nat) -> Nat {
-    exception type = Nat
+    exception variant error_code : Nat
     return n
 }
 

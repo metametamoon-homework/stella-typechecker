@@ -1,0 +1,22 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_VARIANT_LABEL",
+    "location": "20:18"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #exceptions, #open-variant-exceptions, #variants;
+
+exception variant error_code : Nat
+
+fn main(n : Nat) -> Bool {
+    return throw(<| good = true |>)
+}
+

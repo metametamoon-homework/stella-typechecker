@@ -70,3 +70,9 @@ sealed interface ExceptionInfoDeclaration : Declaration
 
 data class ExceptionTypeDeclaration(val type: ast.Type, override val position: Position) :
   ExceptionInfoDeclaration
+
+data class ExceptionVariantDeclaration(
+  val label: String,
+  val type: ast.Type,
+  override val position: Position,
+) : ExceptionInfoDeclaration

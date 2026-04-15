@@ -40,6 +40,8 @@ fun StellaParser.DeclContext.toAst(): Declaration =
       )
     is StellaParser.DeclExceptionTypeContext ->
       ExceptionTypeDeclaration(this.exceptionType!!.toAst(), toPosition())
+    is StellaParser.DeclExceptionVariantContext ->
+      ExceptionVariantDeclaration(this.name!!.text!!, this.variantType!!.toAst(), toPosition())
     else -> error("Unsupported declaration: ${this::class.simpleName}")
   }
 
