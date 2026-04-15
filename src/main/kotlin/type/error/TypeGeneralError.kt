@@ -287,6 +287,21 @@ data class UnexpectedReference(override val errorNode: Node) : TypeError {
     get() = buildString { append("unexpected 'new'") }
 }
 
+data class UnexpectedMemoryAddress(override val errorNode: Node, val expectedType: Type) :
+  TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_MEMORY_ADDRESS"
+  override val userFacingErrorDescription: String
+    get() = buildString {
+      append("cannot cast memory address to a non-ref type ${expectedType.prettyPrint()}")
+    }
+}
+
+data class AmbiguousReferenceType(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_REFERENCE_TYPE"
+  override val userFacingErrorDescription: String
+    get() = buildString { append("cannot infer a type of memory address") }
+}
+
 data class AmbiguousPanic(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_PANIC_TYPE"
   override val userFacingErrorDescription: String

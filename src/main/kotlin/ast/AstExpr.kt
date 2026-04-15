@@ -128,3 +128,5 @@ data class TryCastAs(
   val failureBranch: Expr,
   override val position: Position,
 ) : Expr
+
+data class MemoryAddress(override val position: Position) : Expr

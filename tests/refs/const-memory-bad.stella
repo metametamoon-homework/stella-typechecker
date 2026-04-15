@@ -1,0 +1,18 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_MEMORY_ADDRESS",
+    "location": "17:12"
+  }
+}
+TEST_END
+*/
+
+language core;
+extend with #references, #unit-type, #records, #structural-subtyping;
+
+fn main(n : Nat) -> Nat {
+    return <0x0>
+}

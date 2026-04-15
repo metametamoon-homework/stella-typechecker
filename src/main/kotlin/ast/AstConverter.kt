@@ -152,6 +152,8 @@ fun StellaParser.ExprContext.toAst(): Expr =
         this.fallbackExpr!!.toAst(),
         toPosition(),
       )
+    is StellaParser.ConstMemoryContext -> MemoryAddress(toPosition())
+
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 

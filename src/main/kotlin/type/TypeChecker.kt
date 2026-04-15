@@ -24,6 +24,7 @@ import ast.ListIsEmpty
 import ast.ListLiteral
 import ast.ListTail
 import ast.Match
+import ast.MemoryAddress
 import ast.NatRec
 import ast.NewRef
 import ast.Node
@@ -55,6 +56,7 @@ import com.github.michaelbull.result.mapError
 import kotlin.error
 import type.error.AmbiguousList
 import type.error.AmbiguousPanic
+import type.error.AmbiguousReferenceType
 import type.error.AmbiguousSumType
 import type.error.AmbiguousThrow
 import type.error.AmbiguousVariantType
@@ -84,6 +86,7 @@ import type.error.UnexpectedInjection
 import type.error.UnexpectedLambda
 import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
+import type.error.UnexpectedMemoryAddress
 import type.error.UnexpectedNumberOfParametersInLambda
 import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
@@ -375,11 +378,12 @@ class TypeChecker(private val extensions: List<String>) {
 
         is Deref ->
           binding {
-            val inferredType = inferExprType(expr.arg, env).bind()
-            if (inferredType !is RefType) {
-              raise(NotARef(expr, inferredType))
-            }
-            assertExpectedTypeOrReport(inferredType.inner, expected, expr)
+            checkType(expr.arg, env, RefType(expected)).bind()
+            //            val inferredType = inferExprType(expr.arg, env).bind()
+            //            if (inferredType !is RefType) {
+            //              raise(NotARef(expr, inferredType))
+            //            }
+            //            assertExpectedTypeOrReport(inferredType.inner, expected, expr)
           }
 
         is Sequence ->
@@ -433,6 +437,14 @@ class TypeChecker(private val extensions: List<String>) {
             val envUpdated = matchPatternWithType(expr.successPattern, expr.type.toType()).bind()
             checkType(expr.successBranch, env + envUpdated, expected).bind()
             checkType(expr.failureBranch, env, expected).bind()
+          }
+
+        is MemoryAddress ->
+          binding {
+            if (expected !is RefType) {
+              raise(UnexpectedMemoryAddress(expr, expected))
+            }
+            // otherwise a-ok
           }
       }
     return result.wrapWhileTypechecking(expr, expected)
@@ -909,6 +921,8 @@ class TypeChecker(private val extensions: List<String>) {
             checkType(expr.failureBranch, env, successType).bind()
             successType
           }
+
+        is MemoryAddress -> binding { raise(AmbiguousReferenceType(expr)) }
       }
     return result.wrapWhileInferring(expr)
   }
