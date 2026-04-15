@@ -11,7 +11,7 @@ TEST_END
 */
 
 language core;
-extend with #try-cast-as;
+extend with #try-cast-as, #type-cast-patterns;
 
 fn main(n : Nat) -> Bool {
     return try { n } cast as Nat { x cast as Nat => x } with { false }

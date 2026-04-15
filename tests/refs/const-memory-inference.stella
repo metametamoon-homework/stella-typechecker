@@ -11,7 +11,7 @@ TEST_END
 */
 
 language core;
-extend with #references, #unit-type, #records, #structural-subtyping;
+extend with #references, #unit-type, #records, #structural-subtyping, #let-bindings;
 
 fn main(n : Nat) -> Nat {
     return let x = *<0x0> in x

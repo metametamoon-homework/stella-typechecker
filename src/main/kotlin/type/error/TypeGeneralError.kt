@@ -302,6 +302,18 @@ data class AmbiguousReferenceType(override val errorNode: Node) : TypeError {
     get() = buildString { append("cannot infer a type of memory address") }
 }
 
+data class DuplicateExceptionType(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_EXCEPTION_TYPE"
+  override val userFacingErrorDescription: String
+    get() = "duplicate exception type declaration"
+}
+
+data class IllegalLocalExceptionType(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_ILLEGAL_LOCAL_EXCEPTION_TYPE"
+  override val userFacingErrorDescription: String
+    get() = "exception type declaration is not allowed in a local scope"
+}
+
 data class AmbiguousPanic(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_PANIC_TYPE"
   override val userFacingErrorDescription: String

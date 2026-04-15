@@ -1,0 +1,23 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_ILLEGAL_LOCAL_EXCEPTION_TYPE",
+    "location": "42:69"
+  }
+}
+TEST_END
+*/
+
+language core;
+extend with #exception-type-declaration, #nested-function-declarations;
+
+fn helper(n : Nat) -> Nat {
+    exception type = Nat
+    return n
+}
+
+fn main(n : Nat) -> Nat {
+    return helper(n)
+}

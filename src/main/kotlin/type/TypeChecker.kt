@@ -61,11 +61,13 @@ import type.error.AmbiguousSumType
 import type.error.AmbiguousThrow
 import type.error.AmbiguousVariantType
 import type.error.ContextualTypeError
+import type.error.DuplicateExceptionType
 import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
 import type.error.DuplicateVariantTypeFields
 import type.error.IllegalEmptyMatching
+import type.error.IllegalLocalExceptionType
 import type.error.IncorrectArityOfMain
 import type.error.IncorrectNumberOfArguments
 import type.error.MissingMain
@@ -952,6 +954,9 @@ class TypeChecker(private val extensions: List<String>) {
     when (decl) {
       is FunctionDeclaration ->
         binding {
+          val localExcDecl =
+            decl.localDeclarations.filterIsInstance<ExceptionTypeDeclaration>().firstOrNull()
+          if (localExcDecl != null) raise(IllegalLocalExceptionType(localExcDecl))
           decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
           checkTypeDuplicates(decl.returnType)
           val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
@@ -996,7 +1001,12 @@ class TypeChecker(private val extensions: List<String>) {
         it.name to type
       }
     val currentEnv = env + deltaEnv
+    var seenExceptionTypeDecl = false
     for (declaration in program.declarations) {
+      if (declaration is ExceptionTypeDeclaration) {
+        if (seenExceptionTypeDecl) raise(DuplicateExceptionType(declaration))
+        seenExceptionTypeDecl = true
+      }
       inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
     }
     type.UnitType
