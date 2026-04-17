@@ -1,0 +1,17 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+
+extend with #structural-subtyping, #variants, #references, #top-type;
+
+
+fn main(n : &Bool) -> Top {
+    return *n
+}

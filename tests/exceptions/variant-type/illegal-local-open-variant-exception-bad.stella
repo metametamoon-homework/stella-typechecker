@@ -11,7 +11,7 @@ TEST_END
 */
 
 language core;
-extend with #exceptions, #open-variant-exceptions, #variants, #nested-function-declaration;
+extend with #exceptions, #open-variant-exceptions, #variants, #nested-function-declarations;
 
 fn helper(n : Nat) -> Nat {
     exception variant error_code : Nat

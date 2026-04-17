@@ -169,6 +169,8 @@ class TypeChecker(private val extensions: List<String>) {
     }
   }
 
+  private val structuralSubtypingExtension = "#structural-subtyping"
+
   private fun BindingScope<ContextualTypeError>.checkLambdaParameters(
     abstraction: Abstraction,
     expectedInputTypes: List<Type>,
@@ -186,7 +188,7 @@ class TypeChecker(private val extensions: List<String>) {
     }
     for ((parameter, expectedType) in abstraction.params.zip(expectedInputTypes)) {
       val actualType = parameter.type.toType()
-      if ("#structural-subtyping" in extensions) {
+      if (structuralSubtypingExtension in extensions) {
         assertIsSubtypeOf(expectedType, actualType, abstraction)
       } else if (actualType != expectedType) {
         raise(UnexpectedLambdaParameterType(parameter, expectedType))
@@ -387,12 +389,16 @@ class TypeChecker(private val extensions: List<String>) {
 
         is Deref ->
           binding {
-            checkType(expr.arg, env, RefType(expected)).bind()
-            //            val inferredType = inferExprType(expr.arg, env).bind()
-            //            if (inferredType !is RefType) {
-            //              raise(NotARef(expr, inferredType))
+            val inferredType = inferExprType(expr.arg, env).bind()
+            if (inferredType !is RefType) {
+              raise(NotARef(expr, inferredType))
+            }
+            assertExpectedTypeOrReport(inferredType.inner, expected, expr)
+            //            if (structuralSubtypingExtension in extensions) {
+            //              checkType(expr.arg, env, RefSourceType(expected)).bind()
+            //            } else {
+            //              checkType(expr.arg, env, RefType(expected)).bind()
             //            }
-            //            assertExpectedTypeOrReport(inferredType.inner, expected, expr)
           }
 
         is Sequence ->
@@ -473,7 +479,7 @@ class TypeChecker(private val extensions: List<String>) {
     val missing = expectedKeys - actualKeys
     val extra = actualKeys - expectedKeys
     if (missing.isNotEmpty()) raise(MissingRecordFields(expr, missing))
-    if (extra.isNotEmpty() && "#structural-subtyping" !in extensions)
+    if (extra.isNotEmpty() && structuralSubtypingExtension !in extensions)
       raise(UnexpectedRecordFields(expr, extra))
     for ((field, expectedFieldType) in expected.fields) {
       checkType(bindingsMap.getValue(field), env, expectedFieldType).bind()
@@ -600,7 +606,7 @@ class TypeChecker(private val extensions: List<String>) {
     expected: type.Type,
     expr: Expr,
   ) {
-    if ("#structural-subtyping" in extensions) {
+    if (structuralSubtypingExtension in extensions) {
       assertIsSubtypeOf(actualType, expected, expr)
     } else {
       if (actualType != expected) {
