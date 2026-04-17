@@ -859,7 +859,15 @@ class TypeChecker(private val extensions: List<String>) {
             resultType
           }
 
-        is VariantLiteral -> Err(AmbiguousVariantType(expr).withEmptyContext())
+        is VariantLiteral ->
+          if (ambiguousAsBot in extensions) {
+            binding {
+              val innerType = inferExprType(expr.expr, env).bind()
+              VariantType(mapOf(expr.label to innerType))
+            }
+          } else {
+            Err(AmbiguousVariantType(expr).withEmptyContext())
+          }
         is Fix ->
           binding {
             val fixArg = expr.expr
@@ -904,8 +912,16 @@ class TypeChecker(private val extensions: List<String>) {
             RefType(inner)
           }
 
-        is Panic -> binding { raise(AmbiguousPanic(expr)) }
-        is Throw -> binding { raise(AmbiguousThrow(expr)) }
+        is Panic ->
+          binding {
+            if (ambiguousAsBot in extensions) return@binding Bot
+            raise(AmbiguousPanic(expr))
+          }
+        is Throw ->
+          binding {
+            if (ambiguousAsBot in extensions) return@binding Bot
+            raise(AmbiguousThrow(expr))
+          }
         is TryWith ->
           binding {
             val inferred = inferType(expr.tryExpr, env).bind()
@@ -938,7 +954,11 @@ class TypeChecker(private val extensions: List<String>) {
             successType
           }
 
-        is MemoryAddress -> binding { raise(AmbiguousReferenceType(expr)) }
+        is MemoryAddress ->
+          binding {
+            if (ambiguousAsBot in extensions) return@binding RefType(Bot)
+            raise(AmbiguousReferenceType(expr))
+          }
       }
     return result.wrapWhileInferring(expr)
   }

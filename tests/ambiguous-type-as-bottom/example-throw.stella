@@ -1,0 +1,18 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+
+extend with #ambiguous-type-as-bottom, #structural-subtyping, #open-variant-exceptions;
+
+exception type = Nat
+
+fn main(n : Nat) -> Nat {
+    return let x = throw(0) in x
+}
