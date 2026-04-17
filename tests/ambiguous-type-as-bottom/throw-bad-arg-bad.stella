@@ -1,0 +1,21 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_UNEXPECTED_SUBTYPE",
+    "location": "20:26"
+   }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #ambiguous-type-as-bottom, #structural-subtyping, #exception-type-declaration, #let-bindings, #exceptions;
+
+exception type = Nat
+
+fn main(n : Nat) -> Nat {
+    return let x = throw(true) in x
+}

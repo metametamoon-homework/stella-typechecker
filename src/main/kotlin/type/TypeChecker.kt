@@ -209,7 +209,7 @@ class TypeChecker(private val extensions: List<String>) {
         is Succ ->
           binding {
             assertExpectedTypeOrReport(Nat, expected, expr)
-            checkType(expr.expr, env, expected).bind()
+            checkType(expr.expr, env, Nat).bind()
           }
 
         is Var ->
@@ -245,7 +245,10 @@ class TypeChecker(private val extensions: List<String>) {
           binding {
             expr.params.forEach { checkTypeDuplicates(it.type) }
             if (expected is Top) {
-              return@binding // a-ok
+              // not as a-ok as I thought...
+              val parameterEnv = expr.params.associate { it.name to it.type.toType() }
+              inferExprType(expr.returnExpr, env + parameterEnv).bind()
+              return@binding
             }
             if (expected !is FunType) {
               raise(UnexpectedLambda(expr, expected))
@@ -556,6 +559,14 @@ class TypeChecker(private val extensions: List<String>) {
         }
       }
 
+      is TupleType -> {
+        if (subType !is TupleType) raise(TypeMismatch(expr, superType, subType))
+        if (subType.projections.size != superType.projections.size)
+          raise(TypeMismatch(expr, superType, subType))
+        for ((projSubType, projSuperType) in subType.projections.zip(superType.projections)) {
+          assertIsSubtypeOf(projSubType, projSuperType, expr)
+        }
+      }
       is SumType -> {
         if (subType !is SumType) raise(TypeMismatch(expr, superType, subType))
         assertIsSubtypeOf(subType.left, superType.left, expr)
@@ -922,6 +933,8 @@ class TypeChecker(private val extensions: List<String>) {
           }
         is Throw ->
           binding {
+            val excType = exceptionType ?: error("exception type not set")
+            checkType(expr.arg, env, excType).bind()
             if (ambiguousAsBot in extensions) return@binding Bot
             raise(AmbiguousThrow(expr))
           }

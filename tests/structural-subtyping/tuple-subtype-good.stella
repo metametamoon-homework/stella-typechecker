@@ -1,0 +1,16 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": null
+}
+TEST_END
+*/
+
+language core;
+
+extend with #structural-subtyping, #tuples, #top-type;
+
+fn main(n : Nat) -> {Top, Top} {
+    return {n, true}
+}
