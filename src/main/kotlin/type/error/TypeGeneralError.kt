@@ -19,6 +19,17 @@ data class TypeMismatch(
     get() = "expected type ${expectedType.prettyPrint()}, but got ${actualType.prettyPrint()}"
 }
 
+data class UnexpectedSubtype(
+  override val errorNode: Node,
+  private val expectedType: type.Type,
+  private val actualType: type.Type,
+) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_SUBTYPE"
+  override val userFacingErrorDescription: String
+    get() =
+      "expected a subtype of ${expectedType.prettyPrint()}, but got ${actualType.prettyPrint()}"
+}
+
 data class UndefinedVariable(override val errorNode: Var) : TypeError {
   override val errorId: String = "ERROR_UNDEFINED_VARIABLE"
   override val userFacingErrorDescription: String

@@ -42,6 +42,10 @@ data class RefType(val inner: Type) : Type {
   override fun prettyPrint(): String = "&" + inner.prettyPrint()
 }
 
+data class RefSourceType(val inner: Type) : Type {
+  override fun prettyPrint(): String = "&" + inner.prettyPrint()
+}
+
 data class RecordType(val fields: Map<String, Type>) : Type {
   override fun prettyPrint(): String {
     val entries = fields.entries.joinToString(", ") { (k, v) -> "$k : ${v.prettyPrint()}" }

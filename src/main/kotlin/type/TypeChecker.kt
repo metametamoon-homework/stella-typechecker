@@ -98,6 +98,7 @@ import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordFields
 import type.error.UnexpectedReference
+import type.error.UnexpectedSubtype
 import type.error.UnexpectedTuple
 import type.error.UnexpectedTupleLength
 import type.error.UnexpectedVariant
@@ -389,16 +390,11 @@ class TypeChecker(private val extensions: List<String>) {
 
         is Deref ->
           binding {
-            val inferredType = inferExprType(expr.arg, env).bind()
-            if (inferredType !is RefType) {
-              raise(NotARef(expr, inferredType))
+            if (structuralSubtypingExtension in extensions) {
+              checkType(expr.arg, env, RefSourceType(expected)).bind()
+            } else {
+              checkType(expr.arg, env, RefType(expected)).bind()
             }
-            assertExpectedTypeOrReport(inferredType.inner, expected, expr)
-            //            if (structuralSubtypingExtension in extensions) {
-            //              checkType(expr.arg, env, RefSourceType(expected)).bind()
-            //            } else {
-            //              checkType(expr.arg, env, RefType(expected)).bind()
-            //            }
           }
 
         is Sequence ->
@@ -456,7 +452,7 @@ class TypeChecker(private val extensions: List<String>) {
 
         is MemoryAddress ->
           binding {
-            if (expected !is RefType) {
+            if (expected !is RefType && expected !is RefSourceType) {
               raise(UnexpectedMemoryAddress(expr, expected))
             }
             // otherwise a-ok
@@ -552,6 +548,13 @@ class TypeChecker(private val extensions: List<String>) {
         assertIsSubtypeOf(subType.inner, superType.inner, expr)
         assertIsSubtypeOf(superType.inner, subType.inner, expr)
       }
+      is RefSourceType -> {
+        when (subType) {
+          is RefType -> assertIsSubtypeOf(subType.inner, superType.inner, expr)
+          is RefSourceType -> assertIsSubtypeOf(subType.inner, superType.inner, expr)
+          else -> raise(TypeMismatch(expr, superType, subType))
+        }
+      }
 
       is SumType -> {
         if (subType !is SumType) raise(TypeMismatch(expr, superType, subType))
@@ -569,7 +572,7 @@ class TypeChecker(private val extensions: List<String>) {
         assertIsSubtypeOf(subType.retType, superType.retType, expr)
       }
 
-      else -> if (subType != superType) raise(TypeMismatch(expr, superType, subType))
+      else -> if (subType != superType) raise(UnexpectedSubtype(expr, superType, subType))
     }
   }
 
