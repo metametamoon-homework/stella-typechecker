@@ -69,6 +69,7 @@ import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
 import type.error.DuplicateVariantTypeFields
+import type.error.ExceptionTypeNotDeclared
 import type.error.IllegalEmptyMatching
 import type.error.IllegalLocalExceptionType
 import type.error.IllegalLocalOpenVariantException
@@ -419,10 +420,11 @@ class TypeChecker(private val extensions: List<String>) {
             // ok, the type is as expected
           }
 
-        is Throw -> {
-          val excType = exceptionType ?: error("unspecified exception type")
-          checkType(expr.arg, env, excType)
-        }
+        is Throw ->
+          binding {
+            val excType = exceptionType ?: raise(ExceptionTypeNotDeclared(expr))
+            checkType(expr.arg, env, excType).bind()
+          }
 
         is TryWith ->
           binding {
@@ -433,9 +435,8 @@ class TypeChecker(private val extensions: List<String>) {
         is TryCatch ->
           binding {
             checkType(expr.tryExpr, env, expected).bind()
-            val patEnvs =
-              matchPatternWithType(expr.pattern, exceptionType ?: error("exception type not set"))
-                .bind()
+            val excType = exceptionType ?: raise(ExceptionTypeNotDeclared(expr))
+            val patEnvs = matchPatternWithType(expr.pattern, excType).bind()
             checkType(expr.catch, env + patEnvs, expected).bind()
           }
 
@@ -933,7 +934,7 @@ class TypeChecker(private val extensions: List<String>) {
           }
         is Throw ->
           binding {
-            val excType = exceptionType ?: error("exception type not set")
+            val excType = exceptionType ?: raise(ExceptionTypeNotDeclared(expr))
             checkType(expr.arg, env, excType).bind()
             if (ambiguousAsBot in extensions) return@binding Bot
             raise(AmbiguousThrow(expr))
@@ -949,7 +950,10 @@ class TypeChecker(private val extensions: List<String>) {
           binding {
             val inferred = inferType(expr.tryExpr, env).bind()
             val patEnvs =
-              matchPatternWithType(expr.pattern, exceptionType ?: error("exception type not set"))
+              matchPatternWithType(
+                  expr.pattern,
+                  exceptionType ?: raise(ExceptionTypeNotDeclared(expr)),
+                )
                 .bind()
             checkType(expr.catch, env + patEnvs, inferred).bind()
             inferred

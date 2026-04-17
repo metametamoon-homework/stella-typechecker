@@ -344,6 +344,12 @@ data class IllegalLocalOpenVariantException(override val errorNode: Node) : Type
     get() = "exception variant declaration is not allowed in a local scope"
 }
 
+data class ExceptionTypeNotDeclared(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_EXCEPTION_TYPE_NOT_DECLARED"
+  override val userFacingErrorDescription: String
+    get() = "exception type is not declared"
+}
+
 data class AmbiguousPanic(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_PANIC_TYPE"
   override val userFacingErrorDescription: String

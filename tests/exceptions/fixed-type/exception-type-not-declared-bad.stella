@@ -1,0 +1,19 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "code": "ERROR_EXCEPTION_TYPE_NOT_DECLARED",
+    "location": "18:11"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #exceptions, #natural-literals;
+
+fn main(n : Nat) -> Nat {
+   return throw(0)
+}
