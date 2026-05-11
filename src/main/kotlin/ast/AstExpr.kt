@@ -99,37 +99,3 @@ data class LetBinding(
   val body: Expr,
   override val position: Position,
 ) : Expr
-
-data class Assign(val lhs: Expr, var rhs: Expr, override val position: Position) : Expr
-
-data class Deref(val arg: Expr, override val position: Position) : Expr
-
-data class NewRef(val initValue: Expr, override val position: Position) : Expr
-
-data class Sequence(val lhs: Expr, var rhs: Expr, override val position: Position) : Expr
-
-data class Panic(override val position: Position) : Expr
-
-data class Throw(val arg: Expr, override val position: Position) : Expr
-
-data class TryWith(val tryExpr: Expr, val fallback: Expr, override val position: Position) : Expr
-
-data class TryCatch(
-  val tryExpr: Expr,
-  val pattern: Pattern,
-  val catch: Expr,
-  override val position: Position,
-) : Expr
-
-data class CastAs(val expr: Expr, val type: ast.Type, override val position: Position) : Expr
-
-data class TryCastAs(
-  val scrutinee: Expr,
-  val type: ast.Type,
-  val successPattern: Pattern,
-  val successBranch: Expr,
-  val failureBranch: Expr,
-  override val position: Position,
-) : Expr
-
-data class MemoryAddress(override val position: Position) : Expr

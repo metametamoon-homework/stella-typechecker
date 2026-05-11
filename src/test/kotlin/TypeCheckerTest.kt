@@ -17,6 +17,7 @@ import type.error.prettyPrintError
 
 class TypeCheckerTest {
 
+  //  @Disabled("Not implemented yet")
   @TestFactory fun typeCheckerTests(): List<DynamicTest> = stellaTests(testBody = ::typeCheckTest)
 
   private fun typeCheckTest(sourceFile: File) {

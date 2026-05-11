@@ -2,12 +2,9 @@ package type
 
 import ast.Abstraction
 import ast.Application
-import ast.Assign
 import ast.Binding
-import ast.CastAs
 import ast.ConsList
 import ast.Declaration
-import ast.Deref
 import ast.ExceptionTypeDeclaration
 import ast.ExceptionVariantDeclaration
 import ast.Expr
@@ -25,23 +22,15 @@ import ast.ListIsEmpty
 import ast.ListLiteral
 import ast.ListTail
 import ast.Match
-import ast.MemoryAddress
 import ast.NatRec
-import ast.NewRef
 import ast.Node
-import ast.Panic
 import ast.Pattern
 import ast.Pred
 import ast.Program
 import ast.RecordDotExpression
 import ast.RecordLiteral
-import ast.Sequence
 import ast.Succ
-import ast.Throw
 import ast.TrueLiteral
-import ast.TryCastAs
-import ast.TryCatch
-import ast.TryWith
 import ast.TupleDotExpression
 import ast.TupleLiteral
 import ast.TypeAscription
@@ -56,10 +45,7 @@ import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
 import kotlin.error
 import type.error.AmbiguousList
-import type.error.AmbiguousPanic
-import type.error.AmbiguousReferenceType
 import type.error.AmbiguousSumType
-import type.error.AmbiguousThrow
 import type.error.AmbiguousVariantType
 import type.error.ConflictingExceptionDeclarations
 import type.error.ContextualTypeError
@@ -69,7 +55,6 @@ import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
 import type.error.DuplicateVariantTypeFields
-import type.error.ExceptionTypeNotDeclared
 import type.error.IllegalEmptyMatching
 import type.error.IllegalLocalExceptionType
 import type.error.IllegalLocalOpenVariantException
@@ -81,7 +66,6 @@ import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
 import type.error.NotAList
 import type.error.NotARecord
-import type.error.NotARef
 import type.error.NotATuple
 import type.error.TupleIndexOutOfBound
 import type.error.TypeError
@@ -93,12 +77,10 @@ import type.error.UnexpectedInjection
 import type.error.UnexpectedLambda
 import type.error.UnexpectedLambdaParameterType
 import type.error.UnexpectedList
-import type.error.UnexpectedMemoryAddress
 import type.error.UnexpectedNumberOfParametersInLambda
 import type.error.UnexpectedPatternForType
 import type.error.UnexpectedRecord
 import type.error.UnexpectedRecordFields
-import type.error.UnexpectedReference
 import type.error.UnexpectedSubtype
 import type.error.UnexpectedTuple
 import type.error.UnexpectedTupleLength
@@ -382,85 +364,6 @@ class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
         is Pattern.CastAs -> error("unreachable")
-        is Assign ->
-          binding {
-            val lhsType = inferExprType(expr.lhs, env).bind()
-            if (lhsType !is RefType) {
-              raise(NotARef(expr.lhs, lhsType))
-            }
-            checkType(expr.rhs, env, lhsType.inner).bind()
-            assertExpectedTypeOrReport(UnitType, expected, expr)
-          }
-
-        is Deref ->
-          binding {
-            if (structuralSubtypingExtension in extensions) {
-              checkType(expr.arg, env, RefSourceType(expected)).bind()
-            } else {
-              checkType(expr.arg, env, RefType(expected)).bind()
-            }
-          }
-
-        is Sequence ->
-          binding {
-            checkType(expr.lhs, env, UnitType).bind()
-            checkType(expr.rhs, env, expected).bind()
-          }
-
-        is NewRef ->
-          binding {
-            if (expected !is RefType) {
-              raise(UnexpectedReference(expr))
-            }
-            checkType(expr.initValue, env, expected.inner).bind()
-          }
-
-        is Panic ->
-          binding {
-            // ok, the type is as expected
-          }
-
-        is Throw ->
-          binding {
-            val excType = exceptionType ?: raise(ExceptionTypeNotDeclared(expr))
-            checkType(expr.arg, env, excType).bind()
-          }
-
-        is TryWith ->
-          binding {
-            checkType(expr.tryExpr, env, expected).bind()
-            checkType(expr.fallback, env, expected).bind()
-          }
-
-        is TryCatch ->
-          binding {
-            checkType(expr.tryExpr, env, expected).bind()
-            val excType = exceptionType ?: raise(ExceptionTypeNotDeclared(expr))
-            val patEnvs = matchPatternWithType(expr.pattern, excType).bind()
-            checkType(expr.catch, env + patEnvs, expected).bind()
-          }
-
-        is CastAs ->
-          binding {
-            val _ = inferExprType(expr.expr, env).bind()
-            assertExpectedTypeOrReport(expr.type.toType(), expected, expr)
-          }
-
-        is TryCastAs ->
-          binding {
-            val _ = inferExprType(expr.scrutinee, env).bind()
-            val envUpdated = matchPatternWithType(expr.successPattern, expr.type.toType()).bind()
-            checkType(expr.successBranch, env + envUpdated, expected).bind()
-            checkType(expr.failureBranch, env, expected).bind()
-          }
-
-        is MemoryAddress ->
-          binding {
-            if (expected !is RefType && expected !is RefSourceType) {
-              raise(UnexpectedMemoryAddress(expr, expected))
-            }
-            // otherwise a-ok
-          }
       }
     return result.wrapWhileTypechecking(expr, expected)
   }
@@ -901,84 +804,6 @@ class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
         is Pattern.CastAs -> error("unreachable")
-        is Assign ->
-          binding {
-            val lhsType = inferExprType(expr.lhs, env).bind()
-            if (lhsType !is RefType) raise(NotARef(expr.lhs, lhsType))
-            checkType(expr.rhs, env, lhsType.inner).bind()
-            UnitType
-          }
-
-        is Deref ->
-          binding {
-            val argType = inferExprType(expr.arg, env).bind()
-            if (argType !is RefType) raise(NotARef(expr.arg, argType))
-            argType.inner
-          }
-
-        is Sequence ->
-          binding {
-            checkType(expr.lhs, env, UnitType).bind()
-            inferExprType(expr.rhs, env).bind()
-          }
-        is NewRef ->
-          binding {
-            val inner = inferType(expr.initValue, env).bind()
-            RefType(inner)
-          }
-
-        is Panic ->
-          binding {
-            if (ambiguousAsBot in extensions) return@binding Bot
-            raise(AmbiguousPanic(expr))
-          }
-        is Throw ->
-          binding {
-            val excType = exceptionType ?: raise(ExceptionTypeNotDeclared(expr))
-            checkType(expr.arg, env, excType).bind()
-            if (ambiguousAsBot in extensions) return@binding Bot
-            raise(AmbiguousThrow(expr))
-          }
-        is TryWith ->
-          binding {
-            val inferred = inferType(expr.tryExpr, env).bind()
-            checkType(expr.fallback, env, inferred).bind()
-            inferred
-          }
-
-        is TryCatch ->
-          binding {
-            val inferred = inferType(expr.tryExpr, env).bind()
-            val patEnvs =
-              matchPatternWithType(
-                  expr.pattern,
-                  exceptionType ?: raise(ExceptionTypeNotDeclared(expr)),
-                )
-                .bind()
-            checkType(expr.catch, env + patEnvs, inferred).bind()
-            inferred
-          }
-
-        is CastAs ->
-          binding {
-            inferExprType(expr.expr, env).bind()
-            expr.type.toType()
-          }
-
-        is TryCastAs ->
-          binding {
-            inferExprType(expr.scrutinee, env).bind()
-            val patEnv = matchPatternWithType(expr.successPattern, expr.type.toType()).bind()
-            val successType = inferExprType(expr.successBranch, env + patEnv).bind()
-            checkType(expr.failureBranch, env, successType).bind()
-            successType
-          }
-
-        is MemoryAddress ->
-          binding {
-            if (ambiguousAsBot in extensions) return@binding RefType(Bot)
-            raise(AmbiguousReferenceType(expr))
-          }
       }
     return result.wrapWhileInferring(expr)
   }

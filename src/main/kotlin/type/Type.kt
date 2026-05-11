@@ -69,6 +69,10 @@ data class VariantType(val fields: Map<String, Type>) : Type {
   }
 }
 
+data class TypeVar(private val index: Int) : Type {
+  override fun prettyPrint(): String = "?T${index}"
+}
+
 typealias Env = Map<String, Type>
 
 val emptyEnv: Env = emptyMap()

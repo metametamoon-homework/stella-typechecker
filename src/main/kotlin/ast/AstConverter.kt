@@ -127,35 +127,6 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.FixContext -> Fix(expr = this.expr_!!.toAst(), position = toPosition())
     is StellaParser.ParenthesisedExprContext -> this.expr_!!.toAst()
     is StellaParser.TerminatingSemicolonContext -> this.expr_!!.toAst()
-    is StellaParser.AssignContext -> Assign(this.lhs!!.toAst(), this.rhs!!.toAst(), toPosition())
-    is StellaParser.SequenceContext ->
-      Sequence(this.expr1!!.toAst(), this.expr2!!.toAst(), toPosition())
-    is StellaParser.DerefContext -> Deref(this.expr_!!.toAst(), toPosition())
-    is StellaParser.RefContext -> NewRef(this.expr_!!.toAst(), position = toPosition())
-    is StellaParser.PanicContext -> Panic(toPosition())
-    is StellaParser.ThrowContext -> Throw(this.expr_!!.toAst(), position = toPosition())
-    is StellaParser.TryWithContext ->
-      TryWith(this.tryExpr!!.toAst(), this.fallbackExpr!!.toAst(), position = toPosition())
-    is StellaParser.TryCatchContext ->
-      TryCatch(
-        this.tryExpr!!.toAst(),
-        this.pat!!.toAst(),
-        this.fallbackExpr!!.toAst(),
-        toPosition(),
-      )
-    is StellaParser.TypeCastContext ->
-      CastAs(this.expr_!!.toAst(), this.type_!!.toAst(), toPosition())
-    is StellaParser.TryCastAsContext ->
-      TryCastAs(
-        this.tryExpr!!.toAst(),
-        this.type_!!.toAst(),
-        this.pattern_!!.toAst(),
-        this.expr_!!.toAst(),
-        this.fallbackExpr!!.toAst(),
-        toPosition(),
-      )
-    is StellaParser.ConstMemoryContext -> MemoryAddress(toPosition())
-
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
