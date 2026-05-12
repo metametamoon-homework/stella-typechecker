@@ -55,6 +55,8 @@ sealed interface Type : Node {
   data class Top(override val position: Position) : Type
 
   data class Bottom(override val position: Position) : Type
+
+  data class Auto(override val position: Position) : Type
 }
 
 data class FunctionDeclaration(
@@ -65,14 +67,3 @@ data class FunctionDeclaration(
   val returnExpr: Expr,
   override val position: Position,
 ) : Declaration
-
-sealed interface ExceptionInfoDeclaration : Declaration
-
-data class ExceptionTypeDeclaration(val type: ast.Type, override val position: Position) :
-  ExceptionInfoDeclaration
-
-data class ExceptionVariantDeclaration(
-  val label: String,
-  val type: ast.Type,
-  override val position: Position,
-) : ExceptionInfoDeclaration

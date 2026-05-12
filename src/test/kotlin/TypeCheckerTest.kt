@@ -11,13 +11,11 @@ import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
-import type.TypeChecker
-import type.emptyEnv
 import type.error.prettyPrintError
+import type.inferTypeApi
 
 class TypeCheckerTest {
 
-  //  @Disabled("Not implemented yet")
   @TestFactory fun typeCheckerTests(): List<DynamicTest> = stellaTests(testBody = ::typeCheckTest)
 
   private fun typeCheckTest(sourceFile: File) {
@@ -27,8 +25,7 @@ class TypeCheckerTest {
 
     val lexer = StellaLexer(CharStreams.fromString(sourceText))
     val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-    val result = TypeChecker(program.extensions).inferType(program, emptyEnv)
-
+    val result = inferTypeApi(program)
     result.mapBoth(
       success = { println("Successfully typed!") },
       failure = { error ->

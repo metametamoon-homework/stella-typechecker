@@ -38,10 +38,6 @@ fun StellaParser.DeclContext.toAst(): Declaration =
         returnExpr = this.returnExpr!!.toAst(),
         position = toPosition(),
       )
-    is StellaParser.DeclExceptionTypeContext ->
-      ExceptionTypeDeclaration(this.exceptionType!!.toAst(), toPosition())
-    is StellaParser.DeclExceptionVariantContext ->
-      ExceptionVariantDeclaration(this.name!!.text!!, this.variantType!!.toAst(), toPosition())
     else -> error("Unsupported declaration: ${this::class.simpleName}")
   }
 
@@ -190,5 +186,6 @@ fun StellaParser.StellatypeContext.toAst(): Type =
     is StellaParser.TypeRefContext -> Type.Ref(this.type_!!.toAst(), position = toPosition())
     is StellaParser.TypeTopContext -> Type.Top(position = toPosition())
     is StellaParser.TypeBottomContext -> Type.Bottom(position = toPosition())
+    is StellaParser.TypeAutoContext -> Type.Auto(position = toPosition())
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

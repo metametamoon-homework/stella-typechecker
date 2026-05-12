@@ -17,6 +17,7 @@ fun ast.Type.toType(): Type =
     is ast.Type.Ref -> RefType(inner.toType())
     is ast.Type.Bottom -> Bot
     is ast.Type.Top -> Top
+    is ast.Type.Auto -> freshTypeVar()
   }
 
 fun unreachable(): Nothing = error("unreachable")

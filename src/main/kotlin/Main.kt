@@ -11,9 +11,8 @@ import kotlin.io.path.createTempFile
 import kotlin.system.exitProcess
 import org.antlr.v4.kotlinruntime.CharStreams
 import org.antlr.v4.kotlinruntime.CommonTokenStream
-import type.TypeChecker
-import type.emptyEnv
 import type.error.prettyPrintError
+import type.inferTypeApi
 
 private const val TEMP_FILE_PREFIX = "stella-stdin-"
 private const val TEMP_FILE_SUFFIX = ".stella"
@@ -40,7 +39,7 @@ private fun typeCheckFile(sourceFile: File): Int {
   val sourceText = sourceFile.readText()
   val lexer = StellaLexer(CharStreams.fromString(sourceText))
   val program = StellaParser(CommonTokenStream(lexer)).program().toAst()
-  val result = TypeChecker(program.extensions).inferType(program, emptyEnv)
+  val result = inferTypeApi(program)
 
   return result.mapBoth(
     success = {

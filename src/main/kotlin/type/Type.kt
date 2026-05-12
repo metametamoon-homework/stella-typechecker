@@ -73,6 +73,10 @@ data class TypeVar(private val index: Int) : Type {
   override fun prettyPrint(): String = "?T${index}"
 }
 
+private var typeVarCount = 0
+
+fun freshTypeVar(): TypeVar = TypeVar(typeVarCount++)
+
 typealias Env = Map<String, Type>
 
 val emptyEnv: Env = emptyMap()

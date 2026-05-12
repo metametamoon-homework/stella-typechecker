@@ -5,8 +5,6 @@ import ast.Application
 import ast.Binding
 import ast.ConsList
 import ast.Declaration
-import ast.ExceptionTypeDeclaration
-import ast.ExceptionVariantDeclaration
 import ast.Expr
 import ast.FalseLiteral
 import ast.Fix
@@ -43,21 +41,15 @@ import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
 import com.github.michaelbull.result.mapError
-import kotlin.error
 import type.error.AmbiguousList
 import type.error.AmbiguousSumType
 import type.error.AmbiguousVariantType
-import type.error.ConflictingExceptionDeclarations
 import type.error.ContextualTypeError
-import type.error.DuplicateExceptionType
-import type.error.DuplicateExceptionVariant
 import type.error.DuplicateFunctionDeclaration
 import type.error.DuplicateRecordFields
 import type.error.DuplicateRecordTypeFields
 import type.error.DuplicateVariantTypeFields
 import type.error.IllegalEmptyMatching
-import type.error.IllegalLocalExceptionType
-import type.error.IllegalLocalOpenVariantException
 import type.error.IncorrectArityOfMain
 import type.error.IncorrectNumberOfArguments
 import type.error.MissingMain
@@ -89,10 +81,14 @@ import type.error.UnexpectedVariantLabel
 import type.error.withContextLayer
 import type.error.withEmptyContext
 
-@Suppress("TooManyFunctions", "LargeClass")
-class TypeChecker(private val extensions: List<String>) {
-  private var exceptionType: Type? = null
+// class EqualityConstraint(val left: Type, val right: Type)
+//
+// typealias TypeConstraints = List<EqualityConstraint>
+//
+// data class TypeWithCs()
 
+@Suppress("TooManyFunctions", "LargeClass")
+private class TypeChecker(private val extensions: List<String>) {
   private fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTypeError> =
     when (pattern) {
       is Pattern.Variable -> Ok(mapOf(pattern.name to type))
@@ -182,11 +178,7 @@ class TypeChecker(private val extensions: List<String>) {
 
   // a gigantic when is going to be complex, but there is no work around it
   @Suppress("CyclomaticComplexMethod", "LongMethod")
-  private fun checkType(
-    expr: Expr,
-    env: Env,
-    expected: Type,
-  ): Result<kotlin.Unit, ContextualTypeError> {
+  private fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualTypeError> {
     val result: Result<Unit, ContextualTypeError> =
       when (expr) {
         is Succ ->
@@ -520,8 +512,8 @@ class TypeChecker(private val extensions: List<String>) {
   }
 
   private fun BindingScope<ContextualTypeError>.assertExpectedTypeOrReport(
-    actualType: type.Type,
-    expected: type.Type,
+    actualType: Type,
+    expected: Type,
     expr: Expr,
   ) {
     if (structuralSubtypingExtension in extensions) {
@@ -578,6 +570,7 @@ class TypeChecker(private val extensions: List<String>) {
 
       is ast.Type.Bottom -> {}
       is ast.Type.Top -> {}
+      is ast.Type.Auto -> {}
     }
   }
 
@@ -829,12 +822,6 @@ class TypeChecker(private val extensions: List<String>) {
     when (decl) {
       is FunctionDeclaration ->
         binding {
-          val localExcDecl =
-            decl.localDeclarations.filterIsInstance<ExceptionTypeDeclaration>().firstOrNull()
-          if (localExcDecl != null) raise(IllegalLocalExceptionType(localExcDecl))
-          val localVariantDecl =
-            decl.localDeclarations.filterIsInstance<ExceptionVariantDeclaration>().firstOrNull()
-          if (localVariantDecl != null) raise(IllegalLocalOpenVariantException(localVariantDecl))
           decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
           checkTypeDuplicates(decl.returnType)
           val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
@@ -844,16 +831,6 @@ class TypeChecker(private val extensions: List<String>) {
           checkType(decl.returnExpr, envWithLocals, returnType).bind()
           val inputParams = decl.parameterDeclarations.map { it.type.toType() }
           FunType(inputParams, returnType)
-        }
-      is ExceptionTypeDeclaration ->
-        binding {
-          // work happens at program inference
-          type.UnitType
-        }
-      is ExceptionVariantDeclaration ->
-        binding {
-          // work happens at program inference
-          type.UnitType
         }
     }
 
@@ -884,29 +861,10 @@ class TypeChecker(private val extensions: List<String>) {
         it.name to type
       }
     val currentEnv = env + deltaEnv
-    var seenExceptionTypeDecl = false
-    val variantLabels = mutableListOf<Pair<String, type.Type>>()
-    val seenVariantLabels = mutableSetOf<String>()
     for (declaration in program.declarations) {
-      when (declaration) {
-        is ExceptionTypeDeclaration -> {
-          if (variantLabels.isNotEmpty()) raise(ConflictingExceptionDeclarations(declaration))
-          if (seenExceptionTypeDecl) raise(DuplicateExceptionType(declaration))
-          seenExceptionTypeDecl = true
-          exceptionType = declaration.type.toType()
-        }
-        is ExceptionVariantDeclaration -> {
-          if (seenExceptionTypeDecl) raise(ConflictingExceptionDeclarations(declaration))
-          if (!seenVariantLabels.add(declaration.label))
-            raise(DuplicateExceptionVariant(declaration, declaration.label))
-          variantLabels.add(declaration.label to declaration.type.toType())
-          exceptionType = VariantType(variantLabels.toMap())
-        }
-        else -> {}
-      }
       inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
     }
-    type.UnitType
+    UnitType
   }
 
   fun inferType(node: Node, env: Env): Result<Type, ContextualTypeError> =
@@ -926,3 +884,6 @@ class TypeChecker(private val extensions: List<String>) {
     expected: Type,
   ) = mapError { it.withContextLayer(TypeErrorFrame.WhileTypeChecking(currentNode, expected)) }
 }
+
+fun inferTypeApi(program: Program): Result<Type, ContextualTypeError> =
+  TypeChecker(program.extensions).inferType(program, emptyEnv)
