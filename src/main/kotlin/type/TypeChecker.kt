@@ -40,6 +40,7 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.binding
+import com.github.michaelbull.result.map
 import com.github.michaelbull.result.mapError
 import type.error.AmbiguousList
 import type.error.AmbiguousSumType
@@ -81,11 +82,13 @@ import type.error.UnexpectedVariantLabel
 import type.error.withContextLayer
 import type.error.withEmptyContext
 
-// class EqualityConstraint(val left: Type, val right: Type)
-//
-// typealias TypeConstraints = List<EqualityConstraint>
-//
-// data class TypeWithCs()
+class EqualityConstraint(val left: Type, val right: Type)
+
+typealias TypeConstraints = List<EqualityConstraint>
+
+data class TypeWithCs(val type: Type, val cs: TypeConstraints)
+
+fun Type.withCs(cs: TypeConstraints): TypeWithCs = TypeWithCs(this, cs)
 
 @Suppress("TooManyFunctions", "LargeClass")
 private class TypeChecker(private val extensions: List<String>) {
@@ -122,21 +125,23 @@ private class TypeChecker(private val extensions: List<String>) {
   private fun BindingScope<ContextualTypeError>.resolveBindings(
     bindings: List<Binding>,
     env: Env,
-  ): Env {
+  ): Pair<TypeConstraints, Env> {
     var currentEnv = env
+    val csResult = mutableListOf<EqualityConstraint>()
     for (binding in bindings) {
-      val rhsType = inferExprType(binding.expr, currentEnv).bind()
-      val envUpdate = matchPatternWithType(binding.pattern, rhsType).bind()
+      val (type, cs) = inferExprType(binding.expr, currentEnv).bind()
+      csResult.addAll(cs)
+      val envUpdate = matchPatternWithType(binding.pattern, type).bind()
       currentEnv = currentEnv + envUpdate
     }
-    return currentEnv
+    return csResult to currentEnv
   }
 
   private fun BindingScope<ContextualTypeError>.checkFunctionArgTypes(
     application: Application,
     env: Env,
     expectedInputTypes: List<Type>,
-  ) {
+  ): TypeConstraints {
     val expectedNumberOfArguments = expectedInputTypes.size
     val actualNumberOfArguments = application.args.size
     if (actualNumberOfArguments != expectedNumberOfArguments) {
@@ -144,9 +149,11 @@ private class TypeChecker(private val extensions: List<String>) {
         IncorrectNumberOfArguments(application, expectedNumberOfArguments, actualNumberOfArguments)
       )
     }
+    val cs = mutableListOf<EqualityConstraint>()
     for ((argument, expectedType) in application.args.zip(expectedInputTypes)) {
-      checkType(argument, env, expectedType).bind()
+      cs.addAll(checkType(argument, env, expectedType).bind())
     }
+    return cs
   }
 
   private val structuralSubtypingExtension = "#structural-subtyping"
@@ -178,8 +185,12 @@ private class TypeChecker(private val extensions: List<String>) {
 
   // a gigantic when is going to be complex, but there is no work around it
   @Suppress("CyclomaticComplexMethod", "LongMethod")
-  private fun checkType(expr: Expr, env: Env, expected: Type): Result<Unit, ContextualTypeError> {
-    val result: Result<Unit, ContextualTypeError> =
+  private fun checkType(
+    expr: Expr,
+    env: Env,
+    expected: Type,
+  ): Result<TypeConstraints, ContextualTypeError> {
+    val result: Result<TypeConstraints, ContextualTypeError> =
       when (expr) {
         is Succ ->
           binding {
@@ -191,17 +202,27 @@ private class TypeChecker(private val extensions: List<String>) {
           binding {
             val actual = env[expr.name] ?: raise(UndefinedVariable(expr))
             assertExpectedTypeOrReport(actual, expected, expr)
+            emptyList()
           }
 
-        is TrueLiteral -> binding { assertExpectedTypeOrReport(Bool, expected, expr) }
+        is TrueLiteral ->
+          binding {
+            assertExpectedTypeOrReport(Bool, expected, expr)
+            emptyList()
+          }
 
-        is FalseLiteral -> binding { assertExpectedTypeOrReport(Bool, expected, expr) }
+        is FalseLiteral ->
+          binding {
+            assertExpectedTypeOrReport(Bool, expected, expr)
+            emptyList()
+          }
 
         is IfExpression ->
           binding {
-            checkType(expr.cond, env, Bool).bind()
-            checkType(expr.thenBranch, env, expected).bind()
-            checkType(expr.elseBranch, env, expected).bind()
+            val cs1 = checkType(expr.cond, env, Bool).bind()
+            val cs2 = checkType(expr.thenBranch, env, expected).bind()
+            val cs3 = checkType(expr.elseBranch, env, expected).bind()
+            cs1 + cs2 + cs3
           }
 
         is IsZero ->
@@ -219,73 +240,92 @@ private class TypeChecker(private val extensions: List<String>) {
         is Abstraction ->
           binding {
             expr.params.forEach { checkTypeDuplicates(it.type) }
-            if (expected is Top) {
-              // not as a-ok as I thought...
-              val parameterEnv = expr.params.associate { it.name to it.type.toType() }
-              inferExprType(expr.returnExpr, env + parameterEnv).bind()
-              return@binding
+            when (expected) {
+              is Top -> {
+                val parameterEnv = expr.params.associate { it.name to it.type.toType() }
+                val (_, cs) = inferExprType(expr.returnExpr, env + parameterEnv).bind()
+                cs
+              }
+
+              !is FunType -> {
+                raise(UnexpectedLambda(expr, expected))
+              }
+
+              else -> {
+                checkLambdaParameters(expr, expected.inputTypes)
+                val parameterEnv = expr.params.associate { it.name to it.type.toType() }
+                checkType(expr.returnExpr, env + parameterEnv, expected.retType).bind()
+              }
             }
-            if (expected !is FunType) {
-              raise(UnexpectedLambda(expr, expected))
-            }
-            checkLambdaParameters(expr, expected.inputTypes)
-            val parameterEnv = expr.params.associate { it.name to it.type.toType() }
-            checkType(expr.returnExpr, env + parameterEnv, expected.retType).bind()
           }
 
-        is UnitConstant -> binding { assertExpectedTypeOrReport(UnitType, expected, expr) }
+        is UnitConstant ->
+          binding {
+            assertExpectedTypeOrReport(UnitType, expected, expr)
+            emptyList()
+          }
 
         is Application ->
           binding {
-            val leftType = inferExprType(expr.func, env).bind()
+            val (leftType, cs) = inferExprType(expr.func, env).bind()
             if (leftType !is FunType) {
               raise(NotAFunction(expr.func))
             }
-            checkFunctionArgTypes(expr, env, leftType.inputTypes)
+            val argCs = checkFunctionArgTypes(expr, env, leftType.inputTypes)
             assertExpectedTypeOrReport(leftType.retType, expected, expr)
+            cs + argCs
           }
 
-        is IntLiteral -> binding { assertExpectedTypeOrReport(Nat, expected, expr) }
+        is IntLiteral ->
+          binding {
+            assertExpectedTypeOrReport(Nat, expected, expr)
+            emptyList()
+          }
 
         is NatRec ->
           binding {
             checkType(expr.n, env, Nat).bind()
-            val initType = inferType(expr.init, env).bind()
+            val (initType, initCs) = inferType(expr.init, env).bind()
             val expectedStepType = FunType(listOf(Nat), FunType(listOf(initType), initType))
-            checkType(expr.step, env, expectedStepType).bind()
+            val stepCs = checkType(expr.step, env, expectedStepType).bind()
             assertExpectedTypeOrReport(initType, expected, expr)
+            stepCs + initCs
           }
 
         is TupleLiteral -> binding { checkTupleLiteral(expected, expr, env) }
         is TupleDotExpression ->
           binding {
-            val actualType = inferExprType(expr, env).bind()
+            val (actualType, cs) = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
+            cs
           }
 
         is RecordLiteral -> binding { checkRecordLiteralType(expected, expr, env) }
 
         is RecordDotExpression ->
           binding {
-            val receiverType = inferType(expr.recordExpr, env).bind()
+            val (receiverType, cs) = inferType(expr.recordExpr, env).bind()
             if (receiverType !is RecordType) raise(NotARecord(expr))
             if (expr.label !in receiverType.fields)
               raise(UnexpectedFieldAccess(expr, receiverType, expr.label))
             val fieldType = receiverType.fields.getValue(expr.label)
             assertExpectedTypeOrReport(fieldType, expected, expr)
+            cs
           }
 
         is TypeAscription ->
           binding {
             val ascribed = expr.type.toType()
-            checkType(expr.expr, env, ascribed).bind()
+            val cs = checkType(expr.expr, env, ascribed).bind()
             assertExpectedTypeOrReport(ascribed, expected, expr)
+            cs
           }
 
         is LetBinding ->
           binding {
-            val updatedEnv = resolveBindings(expr.bindings, env)
+            val (cs, updatedEnv) = resolveBindings(expr.bindings, env)
             checkType(expr.body, updatedEnv, expected).bind()
+            cs
           }
 
         is Inl ->
@@ -303,43 +343,52 @@ private class TypeChecker(private val extensions: List<String>) {
         is ListLiteral ->
           binding {
             if (expected !is ListType) raise(UnexpectedList(expr, expected))
+            val cs = mutableListOf<EqualityConstraint>()
             for (element in expr.elements) {
-              checkType(element, env, expected.elementType).bind()
+              cs.addAll(checkType(element, env, expected.elementType).bind())
             }
+            cs
           }
 
         is ConsList ->
           binding {
             if (expected !is ListType) raise(UnexpectedList(expr, expected))
-            checkType(expr.head, env, expected.elementType).bind()
-            checkType(expr.tail, env, expected).bind()
+            val headCs = checkType(expr.head, env, expected.elementType).bind()
+            val tailCs = checkType(expr.tail, env, expected).bind()
+            headCs + tailCs
           }
 
         is ListHead -> binding { checkType(expr.list, env, ListType(expected)).bind() }
 
         is ListTail ->
           binding {
-            val actualType = inferExprType(expr, env).bind()
+            val (actualType, cs) = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
+            cs
           }
 
         is ListIsEmpty ->
           binding {
-            val actualType = inferExprType(expr, env).bind()
+            val (actualType, cs) = inferExprType(expr, env).bind()
             assertExpectedTypeOrReport(actualType, expected, expr)
+            cs
           }
 
         is Match ->
           binding {
+            val resultCs = mutableListOf<EqualityConstraint>()
             if (expr.cases.isEmpty()) raise(IllegalEmptyMatching(expr))
-            val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+            val (scrutineeType, cs) = inferExprType(expr.scrutinee, env).bind()
+            resultCs.addAll(cs)
             // we match types before to catch the invalid match cases before checking for
             // exhaustiveness
             val patEnvs = expr.cases.map { matchPatternWithType(it.pattern, scrutineeType).bind() }
             checkExhaustiveness(expr, scrutineeType)
             for ((case, patEnv) in expr.cases.zip(patEnvs)) {
-              checkType(case.expr, env + patEnv, expected).bind()
+              val localCs = checkType(case.expr, env + patEnv, expected).bind()
+              resultCs.addAll(localCs)
             }
+            resultCs
           }
 
         is VariantLiteral ->
@@ -364,7 +413,7 @@ private class TypeChecker(private val extensions: List<String>) {
     expected: Type,
     expr: RecordLiteral,
     env: Env,
-  ) {
+  ): TypeConstraints {
     if (expected !is RecordType) raise(UnexpectedRecord(expr, expected))
     val duplicates = findDuplicateKeys(expr.bindings)
     if (duplicates.isNotEmpty()) raise(DuplicateRecordFields(expr, duplicates))
@@ -376,23 +425,27 @@ private class TypeChecker(private val extensions: List<String>) {
     if (missing.isNotEmpty()) raise(MissingRecordFields(expr, missing))
     if (extra.isNotEmpty() && structuralSubtypingExtension !in extensions)
       raise(UnexpectedRecordFields(expr, extra))
+    val cs = mutableListOf<EqualityConstraint>()
     for ((field, expectedFieldType) in expected.fields) {
-      checkType(bindingsMap.getValue(field), env, expectedFieldType).bind()
+      cs.addAll(checkType(bindingsMap.getValue(field), env, expectedFieldType).bind())
     }
+    return cs
   }
 
   private fun BindingScope<ContextualTypeError>.checkTupleLiteral(
     expected: Type,
     expr: TupleLiteral,
     env: Env,
-  ) {
+  ): TypeConstraints {
     if (expected !is TupleType) raise(UnexpectedTuple(expr, expected))
     if (expr.projections.size != expected.projections.size) {
       raise(UnexpectedTupleLength(expr, expected.projections.size, expr.projections.size))
     }
+    val cs = mutableListOf<EqualityConstraint>()
     for ((element, expectedElementType) in expr.projections.zip(expected.projections)) {
-      checkType(element, env, expectedElementType).bind()
+      cs.addAll(checkType(element, env, expectedElementType).bind())
     }
+    return cs
   }
 
   private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, type: Type) {
@@ -576,120 +629,131 @@ private class TypeChecker(private val extensions: List<String>) {
 
   private val ambiguousAsBot = "#ambiguous-type-as-bottom"
 
-  // a gigantic when is going to be complex
   @Suppress("CyclomaticComplexMethod", "LongMethod")
-  private fun inferExprType(expr: Expr, env: Env): Result<Type, ContextualTypeError> {
-    val result: Result<Type, ContextualTypeError> =
+  private fun inferExprType(expr: Expr, env: Env): Result<TypeWithCs, ContextualTypeError> {
+    val result: Result<TypeWithCs, ContextualTypeError> =
       when (expr) {
         is Succ ->
           binding {
-            checkType(expr.expr, env, Nat).bind()
-            Nat
+            val cs = checkType(expr.expr, env, Nat).bind()
+            Nat.withCs(cs)
           }
 
-        is Var -> binding { env[expr.name] ?: raise(UndefinedVariable(expr)) }
+        is Var ->
+          binding {
+            val actual = env[expr.name] ?: raise(UndefinedVariable(expr))
+            actual.withCs(emptyList())
+          }
 
         is Application ->
           binding {
-            val funcType = inferExprType(expr.func, env).bind()
+            val (funcType, cs) = inferExprType(expr.func, env).bind()
             if (funcType !is FunType) {
               raise(NotAFunction(expr))
             }
-            checkFunctionArgTypes(expr, env, funcType.inputTypes)
-
-            funcType.retType
+            val argCs = checkFunctionArgTypes(expr, env, funcType.inputTypes)
+            funcType.retType.withCs(cs + argCs)
           }
 
-        is TrueLiteral -> Ok(Bool)
-        is FalseLiteral -> Ok(Bool)
+        is TrueLiteral -> binding { Bool.withCs(emptyList()) }
+        is FalseLiteral -> binding { Bool.withCs(emptyList()) }
 
         is IfExpression ->
           binding {
-            checkType(expr.cond, env, Bool).bind()
-            val inferredType = inferExprType(expr.thenBranch, env).bind()
-            checkType(expr.elseBranch, env, inferredType).bind()
-            inferredType
+            val condCs = checkType(expr.cond, env, Bool).bind()
+            val (inferredType, thenCs) = inferExprType(expr.thenBranch, env).bind()
+            val elseCs = checkType(expr.elseBranch, env, inferredType).bind()
+            inferredType.withCs(condCs + thenCs + elseCs)
           }
 
         is IsZero ->
           binding {
-            checkType(expr.arg, env, Nat).bind()
-            Bool
+            val cs = checkType(expr.arg, env, Nat).bind()
+            Bool.withCs(cs)
           }
 
         is Pred ->
           binding {
-            checkType(expr.arg, env, Nat).bind()
-            Nat
+            val cs = checkType(expr.arg, env, Nat).bind()
+            Nat.withCs(cs)
           }
 
         is NatRec ->
           binding {
-            checkType(expr.n, env, Nat).bind()
-            val exprType = inferExprType(expr.init, env).bind()
-            checkType(expr.step, env, FunType(listOf(Nat), FunType(listOf(exprType), exprType)))
-              .bind()
-            exprType
+            val nCs = checkType(expr.n, env, Nat).bind()
+            val (exprType, initCs) = inferExprType(expr.init, env).bind()
+            val stepCs =
+              checkType(expr.step, env, FunType(listOf(Nat), FunType(listOf(exprType), exprType)))
+                .bind()
+            exprType.withCs(nCs + initCs + stepCs)
           }
 
-        is IntLiteral -> binding { Nat }
+        is IntLiteral -> binding { Nat.withCs(emptyList()) }
         is Abstraction ->
           binding {
             expr.params.forEach { checkTypeDuplicates(it.type) }
             val paramEnv = expr.params.associate { it.name to it.type.toType() }
             val updatedEnv = env + paramEnv
-            val returnType = inferExprType(expr.returnExpr, updatedEnv).bind()
-            FunType(expr.params.map { it.type.toType() }, returnType)
+            val (returnType, retCs) = inferExprType(expr.returnExpr, updatedEnv).bind()
+            FunType(expr.params.map { it.type.toType() }, returnType).withCs(retCs)
           }
 
-        is UnitConstant -> binding { UnitType }
+        is UnitConstant -> binding { UnitType.withCs(emptyList()) }
         is TupleLiteral ->
           binding {
             val projectionTypes = expr.projections.map { inferType(it, env).bind() }
-            TupleType(projectionTypes)
+            val types = projectionTypes.map { it.type }
+            val cs = projectionTypes.flatMap { it.cs }
+            TupleType(types).withCs(cs)
           }
 
         is TupleDotExpression ->
           binding {
-            val receiverType = inferType(expr.tupleExpr, env).bind()
+            val (receiverType, cs) = inferType(expr.tupleExpr, env).bind()
             if (receiverType !is TupleType) {
               raise(NotATuple(expr))
             }
             if (receiverType.projections.size < expr.index) {
               raise(TupleIndexOutOfBound(expr))
             }
-            receiverType.projections[expr.index - 1]
+            receiverType.projections[expr.index - 1].withCs(cs)
           }
 
         is RecordLiteral ->
           binding {
             val duplicates = findDuplicateKeys(expr.bindings)
             if (duplicates.isNotEmpty()) raise(DuplicateRecordFields(expr, duplicates))
-            val fieldTypes = expr.bindings.toMap().mapValues { (_, v) -> inferType(v, env).bind() }
-            RecordType(fieldTypes)
+            val fieldResults =
+              expr.bindings.toMap().mapValues { entry -> inferType(entry.value, env).bind() }
+            val types = fieldResults.mapValues { it.value.type }
+            val cs = fieldResults.values.flatMap { it.cs }
+            RecordType(types).withCs(cs)
           }
 
         is RecordDotExpression ->
           binding {
-            val receiverType = inferType(expr.recordExpr, env).bind()
+            val (receiverType, cs) = inferType(expr.recordExpr, env).bind()
             if (receiverType !is RecordType) {
               raise(NotARecord(expr))
             }
-            receiverType.fields[expr.label]
-              ?: raise(UnexpectedFieldAccess(expr, receiverType, expr.label))
+            val fieldType =
+              receiverType.fields[expr.label]
+                ?: raise(UnexpectedFieldAccess(expr, receiverType, expr.label))
+            fieldType.withCs(cs)
           }
 
         is TypeAscription ->
           binding {
             val ascribed = expr.type.toType()
-            checkType(expr.expr, env, ascribed).bind()
-            ascribed
+            val cs = checkType(expr.expr, env, ascribed).bind()
+            ascribed.withCs(cs)
           }
 
         is LetBinding ->
           binding {
-            val updatedEnv = resolveBindings(expr.bindings, env)
-            inferExprType(expr.body, updatedEnv).bind()
+            val (cs, updatedEnv) = resolveBindings(expr.bindings, env)
+            val (bodyType, bodyCs) = inferExprType(expr.body, updatedEnv).bind()
+            bodyType.withCs(cs + bodyCs)
           }
 
         is Pattern.Variable -> error("unreachable")
@@ -697,52 +761,53 @@ private class TypeChecker(private val extensions: List<String>) {
           binding {
             if (expr.elements.isEmpty()) {
               if (ambiguousAsBot in extensions) {
-                return@binding ListType(Bot)
+                return@binding ListType(Bot).withCs(emptyList())
               } else {
                 raise(AmbiguousList(expr))
               }
             }
-            val firstType = inferExprType(expr.elements.first(), env).bind()
+            val (firstType, firstCs) = inferExprType(expr.elements.first(), env).bind()
+            val restCs = mutableListOf<EqualityConstraint>()
             for (element in expr.elements.drop(1)) {
-              checkType(element, env, firstType).bind()
+              restCs.addAll(checkType(element, env, firstType).bind())
             }
-            ListType(firstType)
+            ListType(firstType).withCs(firstCs + restCs)
           }
 
         is ConsList ->
           binding {
-            val headType = inferExprType(expr.head, env).bind()
+            val (headType, headCs) = inferExprType(expr.head, env).bind()
             val tailExpected = ListType(headType)
-            checkType(expr.tail, env, tailExpected).bind()
-            tailExpected
+            val tailCs = checkType(expr.tail, env, tailExpected).bind()
+            tailExpected.withCs(headCs + tailCs)
           }
 
         is ListHead ->
           binding {
-            val listType = inferExprType(expr.list, env).bind()
+            val (listType, cs) = inferExprType(expr.list, env).bind()
             if (listType !is ListType) raise(NotAList(expr.list))
-            listType.elementType
+            listType.elementType.withCs(cs)
           }
 
         is ListTail ->
           binding {
-            val listType = inferExprType(expr.list, env).bind()
+            val (listType, cs) = inferExprType(expr.list, env).bind()
             if (listType !is ListType) raise(NotAList(expr.list))
-            listType
+            listType.withCs(cs)
           }
 
         is ListIsEmpty ->
           binding {
-            val listType = inferExprType(expr.list, env).bind()
+            val (listType, cs) = inferExprType(expr.list, env).bind()
             if (listType !is ListType) raise(NotAList(expr.list))
-            Bool
+            Bool.withCs(cs)
           }
 
         is Inl ->
           binding {
             if (ambiguousAsBot in extensions) {
-              val inferredType = inferType(expr.expr, env).bind()
-              SumType(inferredType, Bot)
+              val (inferredType, cs) = inferType(expr.expr, env).bind()
+              SumType(inferredType, Bot).withCs(cs)
             } else {
               raise(AmbiguousSumType(expr))
             }
@@ -750,8 +815,8 @@ private class TypeChecker(private val extensions: List<String>) {
         is Inr ->
           binding {
             if (ambiguousAsBot in extensions) {
-              val inferredType = inferType(expr.expr, env).bind()
-              SumType(Bot, inferredType)
+              val (inferredType, cs) = inferType(expr.expr, env).bind()
+              SumType(Bot, inferredType).withCs(cs)
             } else {
               raise(AmbiguousSumType(expr))
             }
@@ -760,21 +825,23 @@ private class TypeChecker(private val extensions: List<String>) {
         is Match ->
           binding {
             if (expr.cases.isEmpty()) raise(IllegalEmptyMatching(expr))
-            val scrutineeType = inferExprType(expr.scrutinee, env).bind()
+            val (scrutineeType, scrutineeCs) = inferExprType(expr.scrutinee, env).bind()
             val patEnvs = expr.cases.map { matchPatternWithType(it.pattern, scrutineeType).bind() }
             checkExhaustiveness(expr, scrutineeType)
-            val resultType = inferExprType(expr.cases.first().expr, env + patEnvs.first()).bind()
-            for ((case, patEnv) in expr.cases.drop(1).zip(patEnvs.drop(1))) {
-              checkType(case.expr, env + patEnv, resultType).bind()
+            val (resultType, resultCs) =
+              inferExprType(expr.cases.first().expr, env + patEnvs.first()).bind()
+            val restCs = mutableListOf<EqualityConstraint>()
+            for ((c, patEnv) in expr.cases.drop(1).zip(patEnvs.drop(1))) {
+              restCs.addAll(checkType(c.expr, env + patEnv, resultType).bind())
             }
-            resultType
+            resultType.withCs(scrutineeCs + resultCs + restCs)
           }
 
         is VariantLiteral ->
           if (ambiguousAsBot in extensions) {
             binding {
-              val innerType = inferExprType(expr.expr, env).bind()
-              VariantType(mapOf(expr.label to innerType))
+              val (innerType, cs) = inferExprType(expr.expr, env).bind()
+              VariantType(mapOf(expr.label to innerType)).withCs(cs)
             }
           } else {
             Err(AmbiguousVariantType(expr).withEmptyContext())
@@ -782,7 +849,7 @@ private class TypeChecker(private val extensions: List<String>) {
         is Fix ->
           binding {
             val fixArg = expr.expr
-            val innerType = inferExprType(fixArg, env).bind()
+            val (innerType, cs) = inferExprType(fixArg, env).bind()
             if (innerType !is FunType) raise(NotAFunction(fixArg))
             if (innerType.inputTypes.size != 1)
               raise(IncorrectNumberOfArguments(fixArg, 1, innerType.inputTypes.size))
@@ -790,7 +857,7 @@ private class TypeChecker(private val extensions: List<String>) {
             if (inputType != innerType.retType) {
               raise(TypeMismatch(fixArg, FunType(listOf(inputType), inputType), innerType))
             }
-            innerType.retType
+            innerType.retType.withCs(cs)
           }
 
         is Pattern.Inl -> error("unreachable")
@@ -818,7 +885,7 @@ private class TypeChecker(private val extensions: List<String>) {
     return envWithSignatures
   }
 
-  fun inferDeclType(decl: Declaration, env: Env): Result<Type, ContextualTypeError> =
+  fun inferDeclType(decl: Declaration, env: Env): Result<TypeWithCs, ContextualTypeError> =
     when (decl) {
       is FunctionDeclaration ->
         binding {
@@ -828,46 +895,47 @@ private class TypeChecker(private val extensions: List<String>) {
           val updatedEnv = env + paramEnv
           val envWithLocals = resolveLocalDeclarations(decl.localDeclarations, updatedEnv)
           val returnType = decl.returnType.toType()
-          checkType(decl.returnExpr, envWithLocals, returnType).bind()
+          val cs = checkType(decl.returnExpr, envWithLocals, returnType).bind()
           val inputParams = decl.parameterDeclarations.map { it.type.toType() }
-          FunType(inputParams, returnType)
+          FunType(inputParams, returnType).withCs(cs)
         }
     }
 
-  fun inferProgramType(program: Program, env: Env): Result<Type, ContextualTypeError> = binding {
-    val functionDeclarations = program.declarations.filterIsInstance<FunctionDeclaration>()
-    val mainDeclaration = functionDeclarations.firstOrNull { it.name == "main" }
-    if (mainDeclaration == null) {
-      raise(MissingMain(program))
-    }
-    val actualMainArity = mainDeclaration.parameterDeclarations.size
-    if (actualMainArity != 1) {
-      raise(IncorrectArityOfMain(mainDeclaration, actualMainArity))
+  fun inferProgramType(program: Program, env: Env): Result<TypeWithCs, ContextualTypeError> =
+    binding {
+      val functionDeclarations = program.declarations.filterIsInstance<FunctionDeclaration>()
+      val mainDeclaration = functionDeclarations.firstOrNull { it.name == "main" }
+      if (mainDeclaration == null) {
+        raise(MissingMain(program))
+      }
+      val actualMainArity = mainDeclaration.parameterDeclarations.size
+      if (actualMainArity != 1) {
+        raise(IncorrectArityOfMain(mainDeclaration, actualMainArity))
+      }
+
+      val seen = mutableSetOf<String>()
+      for (decl in functionDeclarations) {
+        if (!seen.add(decl.name)) {
+          raise(DuplicateFunctionDeclaration(decl, decl.name))
+        }
+      }
+      val deltaEnv =
+        functionDeclarations.map {
+          val type =
+            FunType(
+              it.parameterDeclarations.map { param -> param.type.toType() },
+              it.returnType.toType(),
+            )
+          it.name to type
+        }
+      val currentEnv = env + deltaEnv
+      for (declaration in program.declarations) {
+        inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
+      }
+      UnitType.withCs(emptyList())
     }
 
-    val seen = mutableSetOf<String>()
-    for (decl in functionDeclarations) {
-      if (!seen.add(decl.name)) {
-        raise(DuplicateFunctionDeclaration(decl, decl.name))
-      }
-    }
-    val deltaEnv =
-      functionDeclarations.map {
-        val type =
-          FunType(
-            it.parameterDeclarations.map { param -> param.type.toType() },
-            it.returnType.toType(),
-          )
-        it.name to type
-      }
-    val currentEnv = env + deltaEnv
-    for (declaration in program.declarations) {
-      inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind()
-    }
-    UnitType
-  }
-
-  fun inferType(node: Node, env: Env): Result<Type, ContextualTypeError> =
+  fun inferType(node: Node, env: Env): Result<TypeWithCs, ContextualTypeError> =
     when (node) {
       is Program -> inferProgramType(node, env)
       is Expr -> inferExprType(node, env)
@@ -886,4 +954,4 @@ private class TypeChecker(private val extensions: List<String>) {
 }
 
 fun inferTypeApi(program: Program): Result<Type, ContextualTypeError> =
-  TypeChecker(program.extensions).inferType(program, emptyEnv)
+  TypeChecker(program.extensions).inferType(program, emptyEnv).map { it.type }

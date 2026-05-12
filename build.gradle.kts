@@ -31,6 +31,7 @@ kotlin {
   jvmToolchain(23)
   compilerOptions {
     freeCompilerArgs.addAll(
+      "-Xname-based-destructuring=only-syntax",
       "-Xcontext-parameters",
       "-Xreturn-value-checker=full",
       "-Xwarning-level=ERROR_SUPPRESSION:disabled", // for generated code
