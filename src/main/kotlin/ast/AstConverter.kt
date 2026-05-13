@@ -184,8 +184,6 @@ fun StellaParser.StellatypeContext.toAst(): Type =
       )
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
     is StellaParser.TypeRefContext -> Type.Ref(this.type_!!.toAst(), position = toPosition())
-    is StellaParser.TypeTopContext -> Type.Top(position = toPosition())
-    is StellaParser.TypeBottomContext -> Type.Bottom(position = toPosition())
     is StellaParser.TypeAutoContext -> Type.Auto(position = toPosition())
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

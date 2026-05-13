@@ -5,6 +5,7 @@ import ast.Expr
 import ast.Match
 import ast.Node
 import ast.Pattern
+import ast.Program
 import ast.Var
 import type.RecordType
 import type.Type
@@ -360,4 +361,10 @@ data class AmbiguousThrow(override val errorNode: Node) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_THROW_TYPE"
   override val userFacingErrorDescription: String
     get() = buildString { append("cannot infer type of throw") }
+}
+
+data class AmbiguousType(override val errorNode: Program) : TypeError {
+  override val errorId: String = "ERROR_AMBIGUOUS_TYPE"
+  override val userFacingErrorDescription: String
+    get() = "failed to solve cs :("
 }

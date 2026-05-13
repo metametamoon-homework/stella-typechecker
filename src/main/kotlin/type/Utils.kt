@@ -15,8 +15,6 @@ fun ast.Type.toType(): Type =
       VariantType(fields = this.fields.associate { it.label to it.type.toType() })
 
     is ast.Type.Ref -> RefType(inner.toType())
-    is ast.Type.Bottom -> Bot
-    is ast.Type.Top -> Top
     is ast.Type.Auto -> freshTypeVar()
   }
 

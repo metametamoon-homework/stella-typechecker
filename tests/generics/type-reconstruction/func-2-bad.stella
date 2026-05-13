@@ -1,0 +1,20 @@
+/*
+TEST_BEGIN
+{
+  "type": "stop-on-first-error",
+  "expected-error": {
+    "location": "13:1",
+    "code": "ERROR_AMBIGUOUS_TYPE"
+  }
+}
+TEST_END
+*/
+
+language core;
+
+extend with #type-reconstruction;
+
+
+fn main(n : Nat) -> Bool {
+  return n
+}
