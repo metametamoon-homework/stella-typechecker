@@ -34,8 +34,6 @@ data class Abstraction(
   override val position: Position,
 ) : Expr
 
-data class UnitConstant(override val position: Position) : Expr
-
 data class TupleLiteral(val projections: List<Expr>, override val position: Position) : Expr
 
 data class TupleDotExpression(
@@ -84,9 +82,6 @@ sealed interface Pattern : Expr {
   data class Inr(val inner: Pattern, override val position: Position) : Pattern
 
   data class Variant(val label: String, val inner: Pattern?, override val position: Position) :
-    Pattern
-
-  data class CastAs(val inner: Pattern, val type: ast.Type, override val position: Position) :
     Pattern
 }
 

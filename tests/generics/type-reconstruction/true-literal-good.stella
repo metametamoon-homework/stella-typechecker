@@ -11,6 +11,11 @@ language core;
 
 extend with #type-reconstruction;
 
-fn main(n : auto) -> Nat {
-  return n
+
+fn main(n : auto) -> auto {
+  return true
+}
+
+fn checkType(b : auto) -> Bool {
+  return main(b)
 }

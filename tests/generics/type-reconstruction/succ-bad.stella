@@ -2,7 +2,6 @@
 
 extend with #type-reconstruction;
 
-
-fn main(n : Nat) -> Bool {
-  return n
+fn main(n : auto) -> Bool {
+  return succ(n)
 }

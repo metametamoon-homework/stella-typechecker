@@ -28,15 +28,34 @@ internal fun stellaTests(
     }
     .toList()
 
+private val ERROR_COMMENT_REGEX = Regex("""/\*e=(ERROR_\w+)\*/""")
+
 internal fun extractTestDescription(sourceFile: File): TestDescription {
-  val textSpec =
-    sourceFile
-      .readLines()
-      .dropWhile { "TEST_BEGIN" !in it }
-      .drop(1)
-      .takeWhile { "TEST_END" !in it }
-      .joinToString("\n")
-      .trim()
-  val programSpec = Json.decodeFromString<TestDescription>(textSpec)
-  return programSpec
+  val lines = sourceFile.readLines()
+
+  if (lines.any { "TEST_BEGIN" in it }) {
+    val textSpec =
+      lines
+        .dropWhile { "TEST_BEGIN" !in it }
+        .drop(1)
+        .takeWhile { "TEST_END" !in it }
+        .joinToString("\n")
+        .trim()
+    return Json.decodeFromString<TestDescription>(textSpec)
+  }
+
+  for ((index, line) in lines.withIndex()) {
+    val match = ERROR_COMMENT_REGEX.find(line) ?: continue
+    val errorCode = match.groupValues[1]
+    val row = index + 1
+    val afterComment = line.substring(match.range.last + 1)
+    val col = match.range.last + 2 + (afterComment.length - afterComment.trimStart().length)
+    return TestDescription.StopOnFirstError(ExpectedError(errorCode, "$row:$col"))
+  }
+
+  if (lines.any { "SUCCESS" in it }) {
+    return TestDescription.StopOnFirstError(null)
+  }
+
+  error("Cannot determine test description for ${sourceFile.name}")
 }

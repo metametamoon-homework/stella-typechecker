@@ -15,7 +15,7 @@ fun ast.Type.toType(): Type =
       VariantType(fields = this.fields.associate { it.label to it.type.toType() })
 
     is ast.Type.Ref -> RefType(inner.toType())
-    is ast.Type.Auto -> freshTypeVar()
+    is ast.Type.Auto -> correspondingVar
   }
 
 fun unreachable(): Nothing = error("unreachable")

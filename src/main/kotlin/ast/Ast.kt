@@ -1,5 +1,7 @@
 package ast
 
+import type.TypeVar
+
 data class Point(val column: Int, val row: Int)
 
 data class Position(val begin: Point, val end: Point)
@@ -52,7 +54,7 @@ sealed interface Type : Node {
 
   data class Variant(val fields: List<VariantFieldType>, override val position: Position) : Type
 
-  data class Auto(override val position: Position) : Type
+  data class Auto(val correspondingVar: TypeVar, override val position: Position) : Type
 }
 
 data class FunctionDeclaration(

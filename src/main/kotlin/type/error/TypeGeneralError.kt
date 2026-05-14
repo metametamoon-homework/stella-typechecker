@@ -282,89 +282,14 @@ data class DuplicateFunctionDeclaration(override val errorNode: Node, private va
     get() = "duplicate function declaration '$name'"
 }
 
-data class NotARef(override val errorNode: Node, private val actualType: Type?) : TypeError {
-  override val errorId: String = "ERROR_NOT_A_REFERENCE"
+data class FailedToSolveCs(override val errorNode: Program) : TypeError {
+  override val errorId: String = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
   override val userFacingErrorDescription: String
-    get() = buildString {
-      append("expected a reference type")
-      if (actualType != null) {
-        append(", but got: ${actualType.prettyPrint()}")
-      }
-    }
-}
-
-data class UnexpectedReference(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_UNEXPECTED_REFERENCE"
-  override val userFacingErrorDescription: String
-    get() = buildString { append("unexpected 'new'") }
-}
-
-data class UnexpectedMemoryAddress(override val errorNode: Node, val expectedType: Type) :
-  TypeError {
-  override val errorId: String = "ERROR_UNEXPECTED_MEMORY_ADDRESS"
-  override val userFacingErrorDescription: String
-    get() = buildString {
-      append("cannot cast memory address to a non-ref type ${expectedType.prettyPrint()}")
-    }
-}
-
-data class AmbiguousReferenceType(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_AMBIGUOUS_REFERENCE_TYPE"
-  override val userFacingErrorDescription: String
-    get() = buildString { append("cannot infer a type of memory address") }
-}
-
-data class DuplicateExceptionType(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_DUPLICATE_EXCEPTION_TYPE"
-  override val userFacingErrorDescription: String
-    get() = "duplicate exception type declaration"
-}
-
-data class IllegalLocalExceptionType(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_ILLEGAL_LOCAL_EXCEPTION_TYPE"
-  override val userFacingErrorDescription: String
-    get() = "exception type declaration is not allowed in a local scope"
-}
-
-data class DuplicateExceptionVariant(override val errorNode: Node, private val label: String) :
-  TypeError {
-  override val errorId: String = "ERROR_DUPLICATE_EXCEPTION_VARIANT"
-  override val userFacingErrorDescription: String
-    get() = "duplicate exception variant label '$label'"
-}
-
-data class ConflictingExceptionDeclarations(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_CONFLICTING_EXCEPTION_DECLARATIONS"
-  override val userFacingErrorDescription: String
-    get() = "cannot mix 'exception type' and 'exception variant' declarations"
-}
-
-data class IllegalLocalOpenVariantException(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_ILLEGAL_LOCAL_OPEN_VARIANT_EXCEPTION"
-  override val userFacingErrorDescription: String
-    get() = "exception variant declaration is not allowed in a local scope"
-}
-
-data class ExceptionTypeNotDeclared(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_EXCEPTION_TYPE_NOT_DECLARED"
-  override val userFacingErrorDescription: String
-    get() = "exception type is not declared"
-}
-
-data class AmbiguousPanic(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_AMBIGUOUS_PANIC_TYPE"
-  override val userFacingErrorDescription: String
-    get() = buildString { append("cannot infer type of panic") }
-}
-
-data class AmbiguousThrow(override val errorNode: Node) : TypeError {
-  override val errorId: String = "ERROR_AMBIGUOUS_THROW_TYPE"
-  override val userFacingErrorDescription: String
-    get() = buildString { append("cannot infer type of throw") }
+    get() = "failed to solve cs :("
 }
 
 data class AmbiguousType(override val errorNode: Program) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_TYPE"
   override val userFacingErrorDescription: String
-    get() = "failed to solve cs :("
+    get() = "cannot determine the actual type"
 }

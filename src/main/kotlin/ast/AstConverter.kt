@@ -4,6 +4,7 @@ package ast
 
 import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.ParserRuleContext
+import type.freshTypeVar
 
 private fun ParserRuleContext.toPosition(): Position {
   val start = start ?: error("")
@@ -78,7 +79,6 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.ConstIntContext -> IntLiteral(this.n?.text?.toIntOrNull()!!, toPosition())
     is StellaParser.AbstractionContext ->
       Abstraction(this.paramDecls.map { it.toAst() }, this.returnExpr!!.toAst(), toPosition())
-    is StellaParser.ConstUnitContext -> UnitConstant(toPosition())
     is StellaParser.TupleContext -> TupleLiteral(this.exprs.map { it.toAst() }, toPosition())
     is StellaParser.DotTupleContext ->
       TupleDotExpression(this.expr_!!.toAst(), this.index?.text!!.toInt(), toPosition())
@@ -146,12 +146,6 @@ fun StellaParser.PatternContext.toAst(): Pattern =
         inner = this.pattern_?.toAst(),
         position = toPosition(),
       )
-    is StellaParser.PatternCastAsContext ->
-      Pattern.CastAs(
-        inner = this.pattern_!!.toAst(),
-        type = this.type_!!.toAst(),
-        position = toPosition(),
-      )
     else -> error("Unsupported pattern: ${this::class.simpleName}")
   }
 
@@ -184,6 +178,6 @@ fun StellaParser.StellatypeContext.toAst(): Type =
       )
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
     is StellaParser.TypeRefContext -> Type.Ref(this.type_!!.toAst(), position = toPosition())
-    is StellaParser.TypeAutoContext -> Type.Auto(position = toPosition())
+    is StellaParser.TypeAutoContext -> Type.Auto(freshTypeVar(), position = toPosition())
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }
