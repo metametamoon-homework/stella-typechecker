@@ -1,7 +1,7 @@
 // SUCCESS
 language core;
 
-extend with #type-reconstruction;
+extend with #type-reconstruction, #multiparameter-functions;
 
 
 fn funInt(x : auto, y : auto) -> auto {
@@ -11,4 +11,3 @@ fn funInt(x : auto, y : auto) -> auto {
 fn main(n : Nat) -> auto {
   return funInt(true, true)
 }
-

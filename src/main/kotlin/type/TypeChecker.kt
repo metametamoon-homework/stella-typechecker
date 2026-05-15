@@ -193,6 +193,12 @@ private class TypeChecker(private val extensions: List<String>) {
     env: Env,
     expected: Type,
   ): Result<TypeConstraints, ContextualTypeError> {
+    if (isTypeReconstructionEnabled) {
+      return binding {
+        val (inferredType, cs) = inferExprType(expr, env).bind()
+        cs + EqualityConstraint(inferredType, expected)
+      }
+    }
     val result: Result<TypeConstraints, ContextualTypeError> =
       when (expr) {
         is Succ ->
@@ -335,12 +341,24 @@ private class TypeChecker(private val extensions: List<String>) {
 
         is ListLiteral ->
           binding {
-            if (expected !is ListType) raise(UnexpectedList(expr, expected))
-            val cs = mutableListOf<EqualityConstraint>()
-            for (element in expr.elements) {
-              cs.addAll(checkType(element, env, expected.elementType).bind())
+            if (!isTypeReconstructionEnabled) {
+              if (expected !is ListType) raise(UnexpectedList(expr, expected))
+              val cs = mutableListOf<EqualityConstraint>()
+              for (element in expr.elements) {
+                cs.addAll(checkType(element, env, expected.elementType).bind())
+              }
+              cs
+            } else {
+              val cs = mutableListOf<EqualityConstraint>()
+              val resultType = freshTypeVar()
+              for (element in expr.elements) {
+                val (type, csLocal) = inferType(element, env).bind()
+                cs.addAll(csLocal)
+                cs.add(EqualityConstraint(type, resultType))
+              }
+              cs.add(EqualityConstraint(expected, resultType))
+              cs
             }
-            cs
           }
 
         is ConsList ->
@@ -707,13 +725,26 @@ private class TypeChecker(private val extensions: List<String>) {
         is TupleDotExpression ->
           binding {
             val (receiverType, cs) = inferType(expr.tupleExpr, env).bind()
-            if (receiverType !is TupleType) {
-              raise(NotATuple(expr))
+            if (!isTypeReconstructionEnabled) {
+              if (receiverType !is TupleType) {
+                raise(NotATuple(expr))
+              }
+              if (receiverType.projections.size < expr.index) {
+                raise(TupleIndexOutOfBound(expr))
+              }
+              receiverType.projections[expr.index - 1].withCs(cs)
+            } else {
+              val lhs = freshTypeVar()
+              val rhs = freshTypeVar()
+              val pairType = TupleType(listOf(lhs, rhs))
+              if (expr.index == 1) {
+                lhs.withCs(cs + EqualityConstraint(receiverType, pairType))
+              } else if (expr.index == 2) {
+                rhs.withCs(cs + EqualityConstraint(receiverType, pairType))
+              } else {
+                raise(TupleIndexOutOfBound(expr))
+              }
             }
-            if (receiverType.projections.size < expr.index) {
-              raise(TupleIndexOutOfBound(expr))
-            }
-            receiverType.projections[expr.index - 1].withCs(cs)
           }
 
         is RecordLiteral ->
@@ -757,14 +788,19 @@ private class TypeChecker(private val extensions: List<String>) {
         is ListLiteral ->
           binding {
             if (expr.elements.isEmpty()) {
-              raise(AmbiguousList(expr))
+              if (isTypeReconstructionEnabled) {
+                ListType(freshTypeVar()).withCs(emptyList())
+              } else {
+                raise(AmbiguousList(expr))
+              }
+            } else {
+              val (firstType, firstCs) = inferExprType(expr.elements.first(), env).bind()
+              val restCs = mutableListOf<EqualityConstraint>()
+              for (element in expr.elements.drop(1)) {
+                restCs.addAll(checkType(element, env, firstType).bind())
+              }
+              ListType(firstType).withCs(firstCs + restCs)
             }
-            val (firstType, firstCs) = inferExprType(expr.elements.first(), env).bind()
-            val restCs = mutableListOf<EqualityConstraint>()
-            for (element in expr.elements.drop(1)) {
-              restCs.addAll(checkType(element, env, firstType).bind())
-            }
-            ListType(firstType).withCs(firstCs + restCs)
           }
 
         is ConsList ->
@@ -778,22 +814,36 @@ private class TypeChecker(private val extensions: List<String>) {
         is ListHead ->
           binding {
             val (listType, cs) = inferExprType(expr.list, env).bind()
-            if (listType !is ListType) raise(NotAList(expr.list))
-            listType.elementType.withCs(cs)
+            if (!isTypeReconstructionEnabled) {
+              if (listType !is ListType) raise(NotAList(expr.list))
+              listType.elementType.withCs(cs)
+            } else {
+              val freshVar = freshTypeVar()
+              freshVar.withCs(cs + EqualityConstraint(listType, ListType(freshVar)))
+            }
           }
 
         is ListTail ->
           binding {
             val (listType, cs) = inferExprType(expr.list, env).bind()
-            if (listType !is ListType) raise(NotAList(expr.list))
-            listType.withCs(cs)
+            if (!isTypeReconstructionEnabled) {
+              if (listType !is ListType) raise(NotAList(expr.list))
+              listType.withCs(cs)
+            } else {
+              val freshVar = freshTypeVar()
+              ListType(freshVar).withCs(cs + EqualityConstraint(listType, ListType(freshVar)))
+            }
           }
 
         is ListIsEmpty ->
           binding {
             val (listType, cs) = inferExprType(expr.list, env).bind()
-            if (listType !is ListType) raise(NotAList(expr.list))
-            Bool.withCs(cs)
+            if (!isTypeReconstructionEnabled) {
+              if (listType !is ListType) raise(NotAList(expr.list))
+              Bool.withCs(cs)
+            } else {
+              Bool.withCs(cs + EqualityConstraint(listType, ListType(freshTypeVar())))
+            }
           }
 
         is Inl -> binding { raise(AmbiguousSumType(expr)) }
@@ -819,14 +869,21 @@ private class TypeChecker(private val extensions: List<String>) {
           binding {
             val fixArg = expr.expr
             val (innerType, cs) = inferExprType(fixArg, env).bind()
-            if (innerType !is FunType) raise(NotAFunction(fixArg))
-            if (innerType.inputTypes.size != 1)
-              raise(IncorrectNumberOfArguments(fixArg, 1, innerType.inputTypes.size))
-            val inputType = innerType.inputTypes.single()
-            if (inputType != innerType.retType) {
-              raise(TypeMismatch(fixArg, FunType(listOf(inputType), inputType), innerType))
+            if (!isTypeReconstructionEnabled) {
+              if (innerType !is FunType) raise(NotAFunction(fixArg))
+              if (innerType.inputTypes.size != 1)
+                raise(IncorrectNumberOfArguments(fixArg, 1, innerType.inputTypes.size))
+              val inputType = innerType.inputTypes.single()
+              if (inputType != innerType.retType) {
+                raise(TypeMismatch(fixArg, FunType(listOf(inputType), inputType), innerType))
+              }
+              innerType.retType.withCs(cs)
+            } else {
+              val resultType = freshTypeVar()
+              resultType.withCs(
+                cs + EqualityConstraint(innerType, FunType(listOf(resultType), resultType))
+              )
             }
-            innerType.retType.withCs(cs)
           }
 
         is Pattern.Inl -> error("unreachable")
@@ -952,6 +1009,11 @@ fun unify(cs: TypeConstraints): ((TypeVar) -> Type)? {
       return null
     }
     return unify(tail)
+  } else if (head.left is UnitType) {
+    if (head.right !is UnitType) {
+      return null
+    }
+    return unify(tail)
   }
   tryPutFirst<FunType>(head)?.let { (left, right) ->
     if (right !is FunType) return@unify null
@@ -1022,15 +1084,29 @@ fun Type.applySubstitution(subst: Substitution): Type =
     is VariantType -> VariantType(this.fields.mapValues { it.value.applySubstitution(subst) })
   }
 
+fun Type.containsTypeVar(): Boolean =
+  when (this) {
+    is TypeVar -> true
+    is FunType -> inputTypes.any { it.containsTypeVar() } || retType.containsTypeVar()
+    is ListType -> elementType.containsTypeVar()
+    is TupleType -> projections.any { it.containsTypeVar() }
+    is RecordType -> fields.values.any { it.containsTypeVar() }
+    is VariantType -> fields.values.any { it.containsTypeVar() }
+    is SumType -> left.containsTypeVar() || right.containsTypeVar()
+    is RefType -> inner.containsTypeVar()
+    is RefSourceType -> inner.containsTypeVar()
+    Bool,
+    Nat,
+    UnitType -> false
+  }
+
 fun inferTypeApi(program: Program): Result<Type, ContextualTypeError> = binding {
   val (type, cs) = TypeChecker(program.extensions).inferType(program, emptyEnv).bind()
   val unifier = unify(cs) ?: raise(FailedToSolveCs(program).withEmptyContext())
   val s =
     cs
       .flatMap { listOf(it.left, it.right) }
-      .filter {
-        it.applySubstitution(unifier) is TypeVar // TODO make an actual deep check
-      }
+      .filter { it.applySubstitution(unifier).containsTypeVar() }
   if (s.isNotEmpty()) {
     raise(AmbiguousType(program).withEmptyContext())
   }

@@ -44,5 +44,18 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-./.idea
+/.idea/*
 .myignore
+/.idea/codeStyles/codeStyleConfig.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/runConfigurations/stella_typechecker_v2__codeQuality_.xml
+/.idea/runConfigurations/TypeCheckerTest.xml
+/.idea/.gitignore
+/.idea/.name
+/.idea/detekt.xml
+/.idea/gradle.xml
+/.idea/kotlinc.xml
+/.idea/ktfmt.xml
+/.idea/ktlint-plugin.xml
+/.idea/misc.xml
+/.idea/vcs.xml

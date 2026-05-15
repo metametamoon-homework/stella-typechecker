@@ -11,16 +11,11 @@ language core;
 
 extend with #type-reconstruction;
 
-fn app(f : auto, x : auto) -> auto {
-  return f(x)
+
+fn main(n : auto) -> auto {
+  return true
 }
 
-
-fn funInt(b : Nat) -> Nat {
-  return b
+fn checkType(b : Bool) -> Bool {
+  return main(b)
 }
-
-fn main(n : Nat) -> auto {
-  return app(funInt, n)
-}
-

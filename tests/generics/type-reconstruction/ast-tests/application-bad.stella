@@ -1,6 +1,6 @@
 /*e=ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION*/ language core;
 
-extend with #type-reconstruction;
+extend with #type-reconstruction, #multiparameter-functions;
 
 fn app(f : auto, x : auto) -> auto {
   return f(x)
@@ -14,4 +14,3 @@ fn funInt(b : Nat) -> Nat {
 fn main(n : Nat) -> auto {
   return app(funInt, funInt)
 }
-
