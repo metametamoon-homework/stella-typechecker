@@ -9,6 +9,7 @@ import ast.Program
 import ast.Var
 import type.RecordType
 import type.Type
+import type.TypeConstraints
 
 data class TypeMismatch(
   override val errorNode: Node,
@@ -288,8 +289,42 @@ data class FailedToSolveCs(override val errorNode: Program) : TypeError {
     get() = "failed to solve cs :("
 }
 
+data class UnsolvableCs(val cs: TypeConstraints, override val errorNode: Program) : TypeError {
+  override val errorId: String = "ERROR_OCCURS_CHECK_INFINITE_TYPE"
+  override val userFacingErrorDescription: String
+    get() =
+      "The unification is impossible in finite types. The cs: \n" +
+        cs.joinToString("\n") { "${it.left.prettyPrint()} == ${it.right.prettyPrint()}" }
+}
+
 data class AmbiguousType(override val errorNode: Program) : TypeError {
   override val errorId: String = "ERROR_AMBIGUOUS_TYPE"
   override val userFacingErrorDescription: String
     get() = "cannot determine the actual type"
+}
+
+data class UndefinedTypeVar(override val errorNode: ast.Type.TypeVar) : TypeError {
+  override val errorId: String = "ERROR_UNDEFINED_TYPE_VARIABLE"
+  override val userFacingErrorDescription: String
+    get() = "type variable is undefined"
+}
+
+data class NotAGeneric(val nonGenericType: Type, override val errorNode: ast.TypeApplication) :
+  TypeError {
+  override val errorId: String = "ERROR_NOT_A_GENERIC_FUNCTION"
+  override val userFacingErrorDescription: String
+    get() =
+      "cannot apply type variable to a not-generic function of type ${nonGenericType.prettyPrint()}"
+}
+
+data class IncorrectNumberOfTypeArgs(override val errorNode: ast.TypeApplication) : TypeError {
+  override val errorId: String = "ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS"
+  override val userFacingErrorDescription: String
+    get() = "the applied number of type args does not match the expected number"
+}
+
+data class DuplicateTypeArgs(override val errorNode: Node) : TypeError {
+  override val errorId: String = "ERROR_DUPLICATE_TYPE_PARAMETER"
+  override val userFacingErrorDescription: String
+    get() = "repeating declaration of type arguments is not allowed"
 }

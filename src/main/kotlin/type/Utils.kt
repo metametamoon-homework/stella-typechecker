@@ -16,6 +16,8 @@ fun ast.Type.toType(): Type =
 
     is ast.Type.Ref -> RefType(inner.toType())
     is ast.Type.Auto -> correspondingVar
+    is ast.Type.TypeVar -> TypeVar(name)
+    is ast.Type.ForAll -> ForallType(bindings.map { it.toType() as TypeVar }, body.toType())
   }
 
 fun unreachable(): Nothing = error("unreachable")

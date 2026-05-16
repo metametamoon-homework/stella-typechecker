@@ -1,5 +1,7 @@
 package ast
 
+import type.TypeVar
+
 sealed interface Expr : Node
 
 data class Succ(val expr: Expr, override val position: Position) : Expr
@@ -91,6 +93,17 @@ data class TypeAscription(val expr: Expr, val type: Type, override val position:
 
 data class LetBinding(
   val bindings: List<Binding>,
+  val body: Expr,
+  override val position: Position,
+) : Expr
+
+data class UnitConst(override val position: Position) : Expr
+
+data class TypeApplication(val func: Expr, val args: List<Type>, override val position: Position) :
+  Expr
+
+data class TypeAbstraction(
+  val typeArgs: List<Type.TypeVar>,
   val body: Expr,
   override val position: Position,
 ) : Expr
