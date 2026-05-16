@@ -9,6 +9,8 @@ style:
   ReturnCount:
     active: true
     max: 5
+  MagicNumber:
+    active: false
 
 complexity:
   TooManyFunctions:

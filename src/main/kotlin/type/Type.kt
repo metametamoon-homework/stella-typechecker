@@ -61,16 +61,27 @@ data class VariantType(val fields: Map<String, Type>) : Type {
   }
 }
 
-data class TypeVar(private val index: Int) : Type {
-  override fun prettyPrint(): String = "?T${index}"
+data class TypeVar(val name: String) : Type {
+  override fun prettyPrint(): String = "?T${name}"
+}
+
+data class ForallType(val args: List<TypeVar>, val bodyType: Type) : Type {
+  override fun prettyPrint(): String =
+    "forall ${args.joinToString(", ") { it.prettyPrint() }}. ${bodyType.prettyPrint()}"
 }
 
 private var typeVarCount = 0
 
-fun freshTypeVar(): TypeVar = TypeVar(typeVarCount++)
+fun freshTypeVar(): TypeVar = TypeVar(typeVarCount++.toString())
 
-typealias Env = Map<String, Type>
+// typealias Env = Map<String, Type>
 
-val emptyEnv: Env = emptyMap()
+data class Env(val vars: Map<String, Type>, val types: List<TypeVar>) {
+  operator fun plus(delta: Map<String, Type>): Env = Env(vars + delta, types)
 
-val defaultEnv: Env = mapOf("Nat::iszerp" to FunType(listOf(Nat), Bool))
+  operator fun plus(delta: List<TypeVar>): Env = Env(vars, types + delta)
+
+  operator fun plus(other: Env): Env = Env(vars + other.vars, types + other.types)
+}
+
+val emptyEnv: Env = Env(emptyMap(), emptyList())

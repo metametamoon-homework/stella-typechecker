@@ -4,6 +4,7 @@ package ast
 
 import generated.antlr.StellaParser
 import org.antlr.v4.kotlinruntime.ParserRuleContext
+import type.TypeVar
 import type.freshTypeVar
 
 private fun ParserRuleContext.toPosition(): Position {
@@ -33,6 +34,16 @@ fun StellaParser.DeclContext.toAst(): Declaration =
     is StellaParser.DeclFunContext ->
       FunctionDeclaration(
         name = this.name?.text ?: "<unknown>",
+        parameterDeclarations = this.paramDecls.map { it.toAst() },
+        returnType = this.returnType!!.toAst(),
+        localDeclarations = this.localDecls.map { it.toAst() },
+        returnExpr = this.returnExpr!!.toAst(),
+        position = toPosition(),
+      )
+    is StellaParser.DeclFunGenericContext ->
+      GenericFunctionDeclaration(
+        name = this.name?.text ?: "<unknown>",
+        generics = generics.map { Type.TypeVar(it.text!!, toPosition()) },
         parameterDeclarations = this.paramDecls.map { it.toAst() },
         returnType = this.returnType!!.toAst(),
         localDeclarations = this.localDecls.map { it.toAst() },
@@ -123,6 +134,15 @@ fun StellaParser.ExprContext.toAst(): Expr =
     is StellaParser.FixContext -> Fix(expr = this.expr_!!.toAst(), position = toPosition())
     is StellaParser.ParenthesisedExprContext -> this.expr_!!.toAst()
     is StellaParser.TerminatingSemicolonContext -> this.expr_!!.toAst()
+    is StellaParser.TypeApplicationContext ->
+      TypeApplication(this.func!!.toAst(), this.types.map { it.toAst() }, toPosition())
+    is StellaParser.TypeAbstractionContext ->
+      TypeAbstraction(
+        this.generics.map { Type.TypeVar(it.text!!, toPosition()) },
+        this.expr_!!.toAst(),
+        toPosition(),
+      )
+    is StellaParser.ConstUnitContext -> UnitConst(toPosition())
     else -> error("Unsupported expression: ${this::class.simpleName}")
   }
 
@@ -179,5 +199,14 @@ fun StellaParser.StellatypeContext.toAst(): Type =
     is StellaParser.TypeParensContext -> this.type_!!.toAst()
     is StellaParser.TypeRefContext -> Type.Ref(this.type_!!.toAst(), position = toPosition())
     is StellaParser.TypeAutoContext -> Type.Auto(freshTypeVar(), position = toPosition())
+    is StellaParser.TypeVarContext -> Type.TypeVar(name?.text!!, toPosition())
+    is StellaParser.TypeForAllContext ->
+      Type.ForAll(
+        this.types.map {
+          Type.TypeVar(it.text!!, toPosition())
+        }, // this toPosition is fake, but it will never bite me
+        this.type_!!.toAst(),
+        toPosition(),
+      )
     else -> error("Unsupported type: ${this::class.simpleName} at position ${toPosition()}")
   }

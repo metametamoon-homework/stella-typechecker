@@ -293,3 +293,21 @@ data class AmbiguousType(override val errorNode: Program) : TypeError {
   override val userFacingErrorDescription: String
     get() = "cannot determine the actual type"
 }
+
+data class UndefinedTypeVar(override val errorNode: ast.Type.TypeVar) : TypeError {
+  override val errorId: String = "ERROR_UNDEFINED_TYPE_VARIABLE"
+  override val userFacingErrorDescription: String
+    get() = "type variable is undefined"
+}
+
+data class NotAGeneric(override val errorNode: ast.TypeApplication) : TypeError {
+  override val errorId: String = "ERROR_NOT_A_GENERIC_FUNCTION"
+  override val userFacingErrorDescription: String
+    get() = "cannot apply type variable to a not-generic function"
+}
+
+data class IncorrectNumberOfTypeArgs(override val errorNode: ast.TypeApplication) : TypeError {
+  override val errorId: String = "ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS"
+  override val userFacingErrorDescription: String
+    get() = "the applied number of type args does not match the expected number"
+}

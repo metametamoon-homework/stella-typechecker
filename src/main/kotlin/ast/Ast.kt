@@ -54,7 +54,15 @@ sealed interface Type : Node {
 
   data class Variant(val fields: List<VariantFieldType>, override val position: Position) : Type
 
-  data class Auto(val correspondingVar: TypeVar, override val position: Position) : Type
+  data class Auto(val correspondingVar: type.TypeVar, override val position: Position) : Type
+
+  data class TypeVar(val name: String, override val position: Position) : Type
+
+  data class ForAll(
+    val bindings: List<Type.TypeVar>,
+    val body: Type,
+    override val position: Position,
+  ) : Type
 }
 
 data class FunctionDeclaration(
@@ -64,4 +72,14 @@ data class FunctionDeclaration(
   val localDeclarations: List<Declaration> = emptyList(),
   val returnExpr: Expr,
   override val position: Position,
+) : Declaration
+
+data class GenericFunctionDeclaration(
+  val name: String,
+  val parameterDeclarations: List<ParamDeclaration>,
+  val returnType: Type,
+  val localDeclarations: List<Declaration> = emptyList(),
+  val returnExpr: Expr,
+  override val position: Position,
+  val generics: List<Type.TypeVar>,
 ) : Declaration

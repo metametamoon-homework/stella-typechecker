@@ -9,6 +9,7 @@ import ast.Expr
 import ast.FalseLiteral
 import ast.Fix
 import ast.FunctionDeclaration
+import ast.GenericFunctionDeclaration
 import ast.IfExpression
 import ast.Inl
 import ast.Inr
@@ -31,7 +32,10 @@ import ast.Succ
 import ast.TrueLiteral
 import ast.TupleDotExpression
 import ast.TupleLiteral
+import ast.TypeAbstraction
+import ast.TypeApplication
 import ast.TypeAscription
+import ast.UnitConst
 import ast.Var
 import ast.VariantLiteral
 import com.github.michaelbull.result.BindingScope
@@ -54,10 +58,12 @@ import type.error.FailedToSolveCs
 import type.error.IllegalEmptyMatching
 import type.error.IncorrectArityOfMain
 import type.error.IncorrectNumberOfArguments
+import type.error.IncorrectNumberOfTypeArgs
 import type.error.MissingMain
 import type.error.MissingRecordFields
 import type.error.NonExhaustivePatternMatching
 import type.error.NotAFunction
+import type.error.NotAGeneric
 import type.error.NotAList
 import type.error.NotARecord
 import type.error.NotATuple
@@ -65,6 +71,7 @@ import type.error.TupleIndexOutOfBound
 import type.error.TypeError
 import type.error.TypeErrorFrame
 import type.error.TypeMismatch
+import type.error.UndefinedTypeVar
 import type.error.UndefinedVariable
 import type.error.UnexpectedFieldAccess
 import type.error.UnexpectedInjection
@@ -99,7 +106,7 @@ private class TypeChecker(private val extensions: List<String>) {
 
   private fun matchPatternWithType(pattern: Pattern, type: Type): Result<Env, ContextualTypeError> =
     when (pattern) {
-      is Pattern.Variable -> Ok(mapOf(pattern.name to type))
+      is Pattern.Variable -> Ok(Env(mapOf(pattern.name to type), listOf()))
       is Pattern.Inl ->
         binding {
           if (type !is SumType) raise(UnexpectedPatternForType(pattern, type))
@@ -120,7 +127,7 @@ private class TypeChecker(private val extensions: List<String>) {
           if (pattern.inner != null && fieldType != null) {
             matchPatternWithType(pattern.inner, fieldType).bind()
           } else {
-            emptyMap()
+            emptyEnv
           }
         }
     }
@@ -210,7 +217,7 @@ private class TypeChecker(private val extensions: List<String>) {
 
         is Var ->
           binding {
-            val actual = env[expr.name] ?: raise(UndefinedVariable(expr))
+            val actual = env.vars[expr.name] ?: raise(UndefinedVariable(expr))
             assertExpectedTypeOrReport(actual, expected, expr)
           }
 
@@ -415,6 +422,18 @@ private class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inl -> error("unreachable")
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
+        is TypeApplication ->
+          binding {
+            val (inferredType, cs) = inferType(expr, env).bind()
+            assertExpectedTypeOrReport(inferredType, expected, expr) + cs
+          }
+
+        is TypeAbstraction ->
+          binding {
+            val (inferredType, cs) = inferType(expr, env).bind()
+            assertExpectedTypeOrReport(inferredType, expected, expr) + cs
+          }
+        is UnitConst -> binding { assertExpectedTypeOrReport(UnitType, expected, expr) }
       }
     return result.wrapWhileTypechecking(expr, expected)
   }
@@ -580,6 +599,25 @@ private class TypeChecker(private val extensions: List<String>) {
     } else {
       if (isTypeReconstructionEnabled) {
         return listOf(EqualityConstraint(actualType, expected))
+      } else if (actualType is ForallType) {
+        if (expected !is ForallType) {
+          raise(TypeMismatch(expr, expected, actualType))
+        }
+        if (actualType.args.size != expected.args.size) {
+          raise(TypeMismatch(expr, expected, actualType))
+        }
+        val expNorm = expected.normalizeType() as ForallType
+        val actNorm = actualType.normalizeType() as ForallType
+        val adaptedActBody =
+          actNorm.bodyType.applySubstitution { x ->
+            if (x in actNorm.args) {
+              val idx = actNorm.args.indexOf(x)
+              expNorm.args[idx]
+            } else {
+              x
+            }
+          }
+        return assertExpectedTypeOrReport(adaptedActBody, expNorm.bodyType, expr)
       } else if (actualType != expected) {
         // TODO deep check for record type
         raise(TypeMismatch(expr, expected, actualType))
@@ -631,6 +669,8 @@ private class TypeChecker(private val extensions: List<String>) {
       is ast.Type.Ref -> checkTypeDuplicates(type.inner)
 
       is ast.Type.Auto -> {}
+      is ast.Type.TypeVar -> {}
+      is ast.Type.ForAll -> {}
     }
   }
 
@@ -646,7 +686,7 @@ private class TypeChecker(private val extensions: List<String>) {
 
         is Var ->
           binding {
-            val actual = env[expr.name] ?: raise(UndefinedVariable(expr))
+            val actual = env.vars[expr.name] ?: raise(UndefinedVariable(expr))
             actual.withCs(emptyList())
           }
 
@@ -889,6 +929,45 @@ private class TypeChecker(private val extensions: List<String>) {
         is Pattern.Inl -> error("unreachable")
         is Pattern.Inr -> error("unreachable")
         is Pattern.Variant -> error("unreachable")
+        is TypeApplication ->
+          binding {
+            val (funcType, cs) = inferType(expr.func, env).bind()
+            for (arg in expr.args) {
+              val fredVars = arg.extractFreeVars()
+              val firstMismatch =
+                fredVars.firstOrNull { freeVar -> freeVar.name !in env.types.map { it.name } }
+              if (firstMismatch != null) {
+                raise(UndefinedTypeVar(firstMismatch))
+              }
+            }
+            val args = expr.args.map { it.toType() }
+            if (funcType !is ForallType) {
+              raise(NotAGeneric(expr))
+            }
+            if (funcType.args.size != expr.args.size) {
+              raise(IncorrectNumberOfTypeArgs(expr))
+            }
+            val sbs = { x: TypeVar ->
+              if (x in funcType.args) {
+                val idx = funcType.args.indexOf(x)
+                args[idx]
+              } else {
+                x
+              }
+            }
+            val resultType = funcType.bodyType.applySubstitution(sbs)
+            resultType.withCs(cs)
+          }
+
+        is TypeAbstraction ->
+          binding {
+            val typeArgs = expr.typeArgs.map { it.toType() as TypeVar }
+            val newEnv = env + typeArgs
+            val (inferredType, cs) = inferType(expr.body, newEnv).bind()
+            ForallType(typeArgs, inferredType).withCs(cs)
+          }
+
+        is UnitConst -> binding { UnitType.withCs(emptyList()) }
       }
     return result.wrapWhileInferring(expr)
   }
@@ -903,11 +982,49 @@ private class TypeChecker(private val extensions: List<String>) {
         decl.name to
           FunType(decl.parameterDeclarations.map { it.type.toType() }, decl.returnType.toType())
       }
-    val envWithSignatures = env + signatures
-    for (decl in localDecls.filterIsInstance<FunctionDeclaration>()) {
+    val genericFunctionDeclarations = localDecls.filterIsInstance<GenericFunctionDeclaration>()
+
+    val genericSigs =
+      genericFunctionDeclarations.associate { genericDecl ->
+        val funType =
+          FunType(
+            genericDecl.parameterDeclarations.map { param -> param.type.toType() },
+            genericDecl.returnType.toType(),
+          )
+        val type = ForallType(genericDecl.generics.map { it.toType() as TypeVar }, funType)
+        genericDecl.name to type
+      }
+
+    val envWithSignatures = env + signatures + genericSigs
+    for (decl in
+      localDecls.filterIsInstance<FunctionDeclaration>() +
+        localDecls.filterIsInstance<GenericFunctionDeclaration>()) {
       inferDeclType(decl, envWithSignatures).bind()
     }
     return envWithSignatures
+  }
+
+  private fun ast.Type.extractFreeVars(): Set<ast.Type.TypeVar> {
+    return when (this) {
+      is ast.Type.Auto -> emptySet()
+      is ast.Type.Bool -> emptySet()
+      is ast.Type.ForAll ->
+        body
+          .extractFreeVars()
+          .filter { freeVar -> freeVar.name !in this.bindings.map { it.name } }
+          .toSet()
+      is ast.Type.Fun ->
+        this.inputTypes.flatMap { it.extractFreeVars() }.toSet() + this.returnType.extractFreeVars()
+      is ast.Type.ListType -> this.elementType.extractFreeVars()
+      is ast.Type.Nat -> emptySet()
+      is ast.Type.Record -> this.projections.flatMap { it.second.extractFreeVars() }.toSet()
+      is ast.Type.Ref -> this.inner.extractFreeVars()
+      is ast.Type.Sum -> this.left.extractFreeVars() + this.right.extractFreeVars()
+      is ast.Type.Tuple -> this.projections.flatMap { it.extractFreeVars() }.toSet()
+      is ast.Type.TypeVar -> setOf(this)
+      is ast.Type.Unit -> emptySet()
+      is ast.Type.Variant -> this.fields.flatMap { it.type.extractFreeVars() }.toSet()
+    }
   }
 
   fun inferDeclType(decl: Declaration, env: Env): Result<TypeWithCs, ContextualTypeError> =
@@ -923,6 +1040,40 @@ private class TypeChecker(private val extensions: List<String>) {
           val cs = checkType(decl.returnExpr, envWithLocals, returnType).bind()
           val inputParams = decl.parameterDeclarations.map { it.type.toType() }
           FunType(inputParams, returnType).withCs(cs)
+        }
+
+      is GenericFunctionDeclaration ->
+        binding {
+          val allowedTypes = decl.generics
+          decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
+          checkTypeDuplicates(decl.returnType)
+          val paramEnv =
+            decl.parameterDeclarations.associate { paramDecl ->
+              val firstMismatch =
+                paramDecl.type.extractFreeVars().firstOrNull { freeTypeVar ->
+                  freeTypeVar.name !in allowedTypes.map { it.name }
+                }
+              if (firstMismatch != null) {
+                raise(UndefinedTypeVar(firstMismatch))
+              }
+              paramDecl.name to paramDecl.type.toType()
+            }
+          run {
+            val firstMismatch =
+              decl.returnType.extractFreeVars().firstOrNull { freeTypeVar ->
+                freeTypeVar.name !in allowedTypes.map { it.name }
+              }
+            if (firstMismatch != null) {
+              raise(UndefinedTypeVar(firstMismatch))
+            }
+          }
+          val updatedEnv = env + paramEnv + allowedTypes.map { it.toType() as TypeVar }
+          val envWithLocals = resolveLocalDeclarations(decl.localDeclarations, updatedEnv)
+          val returnType = decl.returnType.toType()
+          val cs = checkType(decl.returnExpr, envWithLocals, returnType).bind()
+          val inputParams = decl.parameterDeclarations.map { it.type.toType() }
+          ForallType(allowedTypes.map { it.toType() as TypeVar }, FunType(inputParams, returnType))
+            .withCs(cs)
         }
     }
 
@@ -944,6 +1095,15 @@ private class TypeChecker(private val extensions: List<String>) {
           raise(DuplicateFunctionDeclaration(decl, decl.name))
         }
       }
+
+      val genericFunctionDeclarations =
+        program.declarations.filterIsInstance<GenericFunctionDeclaration>()
+
+      for (decl in genericFunctionDeclarations) {
+        if (!seen.add(decl.name)) {
+          raise(DuplicateFunctionDeclaration(decl, decl.name))
+        }
+      }
       val deltaEnv =
         functionDeclarations.map {
           val type =
@@ -952,8 +1112,17 @@ private class TypeChecker(private val extensions: List<String>) {
               it.returnType.toType(),
             )
           it.name to type
-        }
-      val currentEnv = env + deltaEnv
+        } +
+          genericFunctionDeclarations.map { genericDecl ->
+            val funType =
+              FunType(
+                genericDecl.parameterDeclarations.map { param -> param.type.toType() },
+                genericDecl.returnType.toType(),
+              )
+            val type = ForallType(genericDecl.generics.map { it.toType() as TypeVar }, funType)
+            genericDecl.name to type
+          }
+      val currentEnv = env + deltaEnv.toMap()
       val cs = mutableListOf<EqualityConstraint>()
       for (declaration in program.declarations) {
         cs.addAll(inferDeclType(declaration, currentEnv).wrapWhileInferring(program).bind().cs)
@@ -1062,43 +1231,6 @@ fun unify(cs: TypeConstraints): ((TypeVar) -> Type)? {
 
   TODO()
 }
-
-@Suppress("CyclomaticComplexMethod")
-fun Type.applySubstitution(subst: Substitution): Type =
-  when (this) {
-    Bool -> Bool
-    is FunType ->
-      FunType(
-        this.inputTypes.map { it.applySubstitution(subst) },
-        this.retType.applySubstitution(subst),
-      )
-    is ListType -> ListType(this.elementType.applySubstitution(subst))
-    Nat -> Nat
-    is RecordType -> RecordType(this.fields.mapValues { (_, v) -> v.applySubstitution(subst) })
-    is RefSourceType -> RefSourceType(this.inner.applySubstitution(subst))
-    is RefType -> RefType(this.inner.applySubstitution(subst))
-    is SumType -> SumType(this.left.applySubstitution(subst), this.right.applySubstitution(subst))
-    is TupleType -> TupleType(this.projections.map { it.applySubstitution(subst) })
-    is TypeVar -> subst.invoke(this)
-    UnitType -> UnitType
-    is VariantType -> VariantType(this.fields.mapValues { it.value.applySubstitution(subst) })
-  }
-
-fun Type.containsTypeVar(): Boolean =
-  when (this) {
-    is TypeVar -> true
-    is FunType -> inputTypes.any { it.containsTypeVar() } || retType.containsTypeVar()
-    is ListType -> elementType.containsTypeVar()
-    is TupleType -> projections.any { it.containsTypeVar() }
-    is RecordType -> fields.values.any { it.containsTypeVar() }
-    is VariantType -> fields.values.any { it.containsTypeVar() }
-    is SumType -> left.containsTypeVar() || right.containsTypeVar()
-    is RefType -> inner.containsTypeVar()
-    is RefSourceType -> inner.containsTypeVar()
-    Bool,
-    Nat,
-    UnitType -> false
-  }
 
 fun inferTypeApi(program: Program): Result<Type, ContextualTypeError> = binding {
   val (type, cs) = TypeChecker(program.extensions).inferType(program, emptyEnv).bind()
