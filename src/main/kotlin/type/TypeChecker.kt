@@ -204,12 +204,13 @@ private class TypeChecker(private val extensions: List<String>) {
     env: Env,
     expected: Type,
   ): Result<TypeConstraints, ContextualTypeError> {
-    if (isTypeReconstructionEnabled) {
-      return binding {
-        val (inferredType, cs) = inferExprType(expr, env).bind()
-        cs + EqualityConstraint(inferredType, expected)
-      }
-    }
+    @Suppress("NoNameShadowing") val expected = expected.normalizeType()
+    //    if (isTypeReconstructionEnabled) {
+    //      return binding {
+    //        val (inferredType, cs) = inferExprType(expr, env).bind()
+    //        cs + EqualityConstraint(inferredType, expected)
+    //      }
+    //    }
     val result: Result<TypeConstraints, ContextualTypeError> =
       when (expr) {
         is Succ ->
@@ -254,16 +255,18 @@ private class TypeChecker(private val extensions: List<String>) {
         is Abstraction ->
           binding {
             expr.params.forEach { checkTypeDuplicates(it.type) }
-            when (expected) {
-              !is FunType -> {
+            if (expected is FunType) {
+              checkLambdaParameters(expr, expected.inputTypes)
+              val parameterEnv = expr.params.associate { it.name to it.type.toType() }
+              checkType(expr.returnExpr, env + parameterEnv, expected.retType).bind()
+            } else if (isTypeReconstructionEnabled) {
+              if (expected !is TypeVar) {
                 raise(UnexpectedLambda(expr, expected))
               }
-
-              else -> {
-                checkLambdaParameters(expr, expected.inputTypes)
-                val parameterEnv = expr.params.associate { it.name to it.type.toType() }
-                checkType(expr.returnExpr, env + parameterEnv, expected.retType).bind()
-              }
+              val (inferredType, cs) = inferExprType(expr, env).bind()
+              cs + EqualityConstraint(inferredType, expected)
+            } else {
+              raise(UnexpectedLambda(expr, expected))
             }
           }
 
@@ -278,6 +281,9 @@ private class TypeChecker(private val extensions: List<String>) {
               val csAss = assertExpectedTypeOrReport(leftType.retType, expected, expr)
               leftCs + argCs + csAss
             } else {
+              if (leftType !is FunType && leftType !is TypeVar) {
+                raise(NotAFunction(expr.func))
+              }
               val argTypes = expr.args.map { inferType(it, env).bind() }
               val resultTypeVar = freshTypeVar()
               val deducedFromArgsFunType = FunType(argTypes.map { it.type }, resultTypeVar)
@@ -340,14 +346,26 @@ private class TypeChecker(private val extensions: List<String>) {
 
         is Inl ->
           binding {
-            if (expected !is SumType) raise(UnexpectedInjection(expr, expected))
-            checkType(expr.expr, env, expected.left).bind()
+            if (expected is SumType) {
+              checkType(expr.expr, env, expected.left).bind()
+            } else if (isTypeReconstructionEnabled) {
+              val (inferredType, cs) = inferExprType(expr, env).bind()
+              cs + EqualityConstraint(inferredType, expected)
+            } else {
+              raise(UnexpectedInjection(expr, expected))
+            }
           }
 
         is Inr ->
           binding {
-            if (expected !is SumType) raise(UnexpectedInjection(expr, expected))
-            checkType(expr.expr, env, expected.right).bind()
+            if (expected is SumType) {
+              checkType(expr.expr, env, expected.right).bind()
+            } else if (isTypeReconstructionEnabled) {
+              val (inferredType, cs) = inferExprType(expr, env).bind()
+              cs + EqualityConstraint(inferredType, expected)
+            } else {
+              raise(UnexpectedInjection(expr, expected))
+            }
           }
 
         is ListLiteral ->
@@ -374,10 +392,15 @@ private class TypeChecker(private val extensions: List<String>) {
 
         is ConsList ->
           binding {
-            if (expected !is ListType) raise(UnexpectedList(expr, expected))
-            val headCs = checkType(expr.head, env, expected.elementType).bind()
-            val tailCs = checkType(expr.tail, env, expected).bind()
-            headCs + tailCs
+            if (expected is ListType) {
+              val headCs = checkType(expr.head, env, expected.elementType).bind()
+              val tailCs = checkType(expr.tail, env, expected).bind()
+              headCs + tailCs
+            } else if (isTypeReconstructionEnabled) {
+              if (expected !is TypeVar) raise(UnexpectedList(expr, expected))
+              val (inferredType, cs) = inferExprType(expr, env).bind()
+              cs + EqualityConstraint(inferredType, expected)
+            } else raise(UnexpectedList(expr, expected))
           }
 
         is ListHead -> binding { checkType(expr.list, env, ListType(expected)).bind() }
@@ -447,6 +470,11 @@ private class TypeChecker(private val extensions: List<String>) {
     expr: RecordLiteral,
     env: Env,
   ): TypeConstraints {
+    if (isTypeReconstructionEnabled) {
+      // give up in record type
+      val (inferredType, cs) = inferExprType(expr, env).bind()
+      return cs + EqualityConstraint(inferredType, expected)
+    }
     if (expected !is RecordType) raise(UnexpectedRecord(expr, expected))
     val duplicates = findDuplicateKeys(expr.bindings)
     if (duplicates.isNotEmpty()) raise(DuplicateRecordFields(expr, duplicates))
@@ -470,15 +498,21 @@ private class TypeChecker(private val extensions: List<String>) {
     expr: TupleLiteral,
     env: Env,
   ): TypeConstraints {
-    if (expected !is TupleType) raise(UnexpectedTuple(expr, expected))
-    if (expr.projections.size != expected.projections.size) {
-      raise(UnexpectedTupleLength(expr, expected.projections.size, expr.projections.size))
+    if (expected is TupleType) {
+      if (expr.projections.size != expected.projections.size) {
+        raise(UnexpectedTupleLength(expr, expected.projections.size, expr.projections.size))
+      }
+      val cs = mutableListOf<EqualityConstraint>()
+      for ((element, expectedElementType) in expr.projections.zip(expected.projections)) {
+        cs.addAll(checkType(element, env, expectedElementType).bind())
+      }
+      return cs
+    } else if (isTypeReconstructionEnabled && expected is TypeVar) {
+      val (inferredType, cs) = inferExprType(expr, env).bind()
+      return cs + EqualityConstraint(inferredType, expected)
+    } else {
+      raise(UnexpectedTuple(expr, expected))
     }
-    val cs = mutableListOf<EqualityConstraint>()
-    for ((element, expectedElementType) in expr.projections.zip(expected.projections)) {
-      cs.addAll(checkType(element, env, expectedElementType).bind())
-    }
-    return cs
   }
 
   private fun BindingScope<ContextualTypeError>.checkExhaustiveness(match: Match, type: Type) {
@@ -704,6 +738,9 @@ private class TypeChecker(private val extensions: List<String>) {
               val argCs = checkFunctionArgTypes(expr, env, leftType.inputTypes)
               leftType.retType.withCs(leftCs + argCs)
             } else {
+              if (leftType !is FunType && leftType !is TypeVar) {
+                raise(NotAFunction(expr))
+              }
               val argTypes = expr.args.map { inferType(it, env).bind() }
               val resultTypeVar = freshTypeVar()
               val deducedFromArgsFunType = FunType(argTypes.map { it.type }, resultTypeVar)
@@ -890,8 +927,26 @@ private class TypeChecker(private val extensions: List<String>) {
             }
           }
 
-        is Inl -> binding { raise(AmbiguousSumType(expr)) }
-        is Inr -> binding { raise(AmbiguousSumType(expr)) }
+        is Inl ->
+          binding {
+            if (isTypeReconstructionEnabled) {
+              val (inferredInjType, cs) = inferType(expr.expr, env).bind()
+              val freshVar = freshTypeVar()
+              SumType(inferredInjType, freshVar).withCs(cs)
+            } else {
+              raise(AmbiguousSumType(expr))
+            }
+          }
+        is Inr ->
+          binding {
+            if (isTypeReconstructionEnabled) {
+              val (inferredInjType, cs) = inferType(expr.expr, env).bind()
+              val freshVar = freshTypeVar()
+              SumType(freshVar, inferredInjType).withCs(cs)
+            } else {
+              raise(AmbiguousSumType(expr))
+            }
+          }
 
         is Match ->
           binding {
@@ -1039,6 +1094,18 @@ private class TypeChecker(private val extensions: List<String>) {
       is FunctionDeclaration ->
         binding {
           decl.parameterDeclarations.forEach { checkTypeDuplicates(it.type) }
+          decl.parameterDeclarations.forEach { paramDecl ->
+            val firstMismatch = paramDecl.type.extractFreeVars().firstOrNull()
+            if (firstMismatch != null) {
+              raise(UndefinedTypeVar(firstMismatch))
+            }
+          }
+          run {
+            val firstMismatch = decl.returnType.extractFreeVars().firstOrNull()
+            if (firstMismatch != null) {
+              raise(UndefinedTypeVar(firstMismatch))
+            }
+          }
           checkTypeDuplicates(decl.returnType)
           val paramEnv = decl.parameterDeclarations.associate { it.name to it.type.toType() }
           val updatedEnv = env + paramEnv
